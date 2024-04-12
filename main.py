@@ -16,6 +16,7 @@ app.include_router(igeport_router)
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
+print('hello')
 
 
 
