@@ -1,0 +1,72 @@
+from typing import Union
+from fastapi import FastAPI, HTTPException
+from pymongo import MongoClient
+from pydantic import BaseModel
+import os
+import logging
+# main.py
+from router.geport import router as geport_router
+from router.igeport import router as igeport_router
+
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+mongodb_url = os.getenv("MONGODB_URL", "mongodb://admin:1234@localhost:27017/admin")
+logger.info(f"MONGODB_URL: {mongodb_url}")
+
+# MongoDB 연결
+client = MongoClient(mongodb_url)
+db = client["admin"]  # MongoDB 연결 시 사용한 데이터베이스
+
+
+app = FastAPI(root_path="/api")
+app.include_router(geport_router)
+app.include_router(igeport_router)
+
+
+# Pydantic 모델 정의
+class Item(BaseModel):
+    name: str
+    description: Union[str, None] = None
+    price: float
+    tax: Union[float, None] = None
+
+class AnyData(BaseModel):
+    data: dict
+
+@app.post("/insert-data/")
+async def insert_data(data: AnyData):
+    if data.data is None:
+        raise HTTPException(status_code=400, detail="No data provided")
+    result = db.any_collection.insert_one(data.data)  # 'any_collection'을 실제 컬렉션 이름으로 변경하세요
+    return {"inserted_id": str(result.inserted_id)}
+
+
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
+
+# @app.get("/items/{item_id}")
+# def read_item(item_id: int, q: Union[str, None] = None):
+#     return {"item_id": item_id, "q": q}
+
+# # MongoDB에 아이템 추가
+# @app.post("/items/")
+# def create_item(item: Item):
+#     item_dict = item.dict()
+#     if item.tax:
+#         price_with_tax = item.price + item.tax
+#         item_dict.update({"price_with_tax": price_with_tax})
+#     db.items.insert_one(item_dict)
+#     return item_dict
+
+# # MongoDB에서 아이템 조회
+# @app.get("/items/")
+# def read_items():
+#     items = list(db.items.find())
+#     for item in items:
+#         item["_id"] = str(item["_id"])
+#     return items
+
