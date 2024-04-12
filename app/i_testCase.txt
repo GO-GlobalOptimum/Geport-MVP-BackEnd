@@ -1,0 +1,21 @@
+{
+  "name": "정준범",
+  "bio": "아자아자",
+  "phone": "3",
+  "mbti": "INTP",
+  "age": 23,
+  "gender": "남자",
+  "blog_links": [
+    "https://m.blog.naver.com/lihiten0124/223100975850",
+    "https://m.blog.naver.com/lihiten0124/223089685588",
+    "https://m.blog.naver.com/lihiten0124/223085000976",
+    "https://m.blog.naver.com/lihiten0124/223075755772"
+  ],
+  "questions": [
+    "나는 상상력이 풍부하다",
+    "나는 목표를 달성하기 위해 노력하고, 포기하지 않는다.",
+    "나는 사회적 활동에 참여하는 것을 피하곤 한다.",
+    "나는 타인과의 관계에서 양보하는 편이다.",
+    "나는 종종 스트레스나 불안을 느낀다."
+  ]
+}
