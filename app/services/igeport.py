@@ -124,33 +124,34 @@ def create_init_prompt():
     return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
                 """
                 You are a helper who summarizes the text in 8 sentences, finds various emotions in the text, 
-                and finds words related to happiness in the text                
+                and finds words related to happiness in the text. pelase answer with korean.            
                 """
                 ),
             HumanMessagePromptTemplate.from_template(
                 """
-                ### 예시 입력
-                Question: 이글을 요약하고, 행복과 관련된 감정, 슬픔과 관련된 감정을 찾아주고, 감정을 나타내는 단어는 아니지만 행복과 관련된 단어를 찾아줘
-                Context: 오늘의 시드니 여행은 재미있었다. 오늘은 아침에 모닝빵과 스테이크를 먹었고 그 다음으로 근처 기념품관에서 오르골을 샀다.
-                점심에는 바다가 보이는 레스토랑에서 와인과 함께 코스요리를 즐겼다. 저녁은 불꽃 축제와 함께 재미있는 친구들을 사귀며 놀았다.
-                이번 여행은 정말 재미있었고 다음에도 다시 왔으면 좋겠다.
+                ### Example Input
+                Question: Summarize this article, find emotions related to happiness and sadness, and identify words that are not directly emotional but are related to happiness.
+                Context: Today's trip to Sydney was fun. In the morning, I had morning bread and steak, and then I bought a music box at a nearby souvenir shop.
+                For lunch, I enjoyed a course meal with wine at a restaurant overlooking the sea. In the evening, I had fun making new friends at a fireworks festival.
+                I really enjoyed this trip and would love to come back again.
 
-                ### 예시 출력
-                오르골과 바다 그리고 불꽃축제와 함께 했던 정말 재미있었던 시드니 여행에 대한 이야기 입니다. 
-                아침에는 스테이크와 빵을 먹으면서 즐거운 하루를 시작하였습니다.
-                기념관에서 오르골을 사서 행복했고, 바다가 보이는 식당에서의 코스 요리를 즐겼습니다.
-                친구들과 불꽃놀이를 하고 다양한 친구를 사귀었습니다.
-                이 글은 시드니에 놀러가서 다양한 경험을 하고, 다양한 친구들을 사귀며 좋은 추억을 담은 이야기입니다.
+                ### Example Output
+                The story of a truly fun Sydney trip with music boxes, the sea, and a fireworks festival.
+                In the morning, I started a joyful day by eating steak and bread.
+                I was happy to buy a music box at the memorial hall, and I enjoyed the course meal at the seaside restaurant.
+                I made various friends while enjoying the fireworks.
+                This post is about visiting Sydney, experiencing various things, making friends, and capturing good memories.
 
-                여행에서는 모니빵과 스테이크를 먹어 행복함을 느꼈고, 이번여행은 정말 즐겨웠다 라는 점에서 여행에 대한 행복감을 보이고 있습니다. 
-                
-                그리고 스테이크, 와인, 해변 의 단어가 행복과 연관되어있습니다.
+                During the trip, eating morning bread and steak made me feel happy, and this trip was really enjoyable, showing a sense of happiness about the trip.
 
-                ### 입력
-                Question: 이글을 요약하고, 행복과 관련된 감정, 슬픔과 관련된 감정을 찾아주고, 감정을 나타내는 단어는 아니지만 행복과 관련된 단어를 찾아줘
+                And the words steak, wine, and beach are associated with happiness.
+
+                ### Input
+                Question: Summarize this article, find emotions related to happiness and sadness, and identify words that are not directly emotional but are related to happiness.
                 Context: {context}
 
-                ### 출력
+                ### Output
+
 
                 """
             )])
@@ -343,6 +344,11 @@ def get_init4(split_docs):
     analyze_3 = llm35(analyze_3)
     analyze_4 = llm35(analyze_4)
 
+    print(analyze_1)
+    print(analyze_2)
+    print(analyze_3)
+    print(analyze_4)
+
     result = {
     "1st": analyze_1.content,
     "2nd": analyze_2.content,
@@ -351,7 +357,6 @@ def get_init4(split_docs):
 }
 
     return result
-
 
 
 def generate_igeport(encrypted_id: str):
@@ -366,4 +371,4 @@ def generate_igeport(encrypted_id: str):
     inital_4 = get_init4(split_docs)
 
 
-    return inital_4['1st']
+    return inital_4
