@@ -16,6 +16,8 @@ app.include_router(igeport_router)
 @app.get("/")
 def read_root():
     return {"Hello": "World"}
+print('hello')
+
 
 
 
@@ -54,4 +56,3 @@ def read_root():
 #     for item in items:
 #         item["_id"] = str(item["_id"])
 #     return items
-

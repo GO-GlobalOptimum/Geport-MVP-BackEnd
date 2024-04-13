@@ -6,7 +6,7 @@ from app.services.igeport import create_user_service, read_list_service, read_us
 
 router = APIRouter()
 
-@router.post("/igeport/create/test/", status_code=status.HTTP_201_CREATED)
+@router.post("/igeport/create/test", status_code=status.HTTP_201_CREATED)
 def create_user(user_data: UserData):
     return create_user_service(user_data)
 
@@ -15,9 +15,9 @@ def create_user(user_data: UserData):
 def read_user(encrypted_id: str):
     return read_user_service(encrypted_id)
 
-@router.get("/igeport/list/test/")
+@router.get("/igeport/list/test")
 def read_list():
-    return read_list_service
+    return read_list_service()
 
 
 @router.get("/igeport/generate-test/{encrypted_id}")

@@ -8,14 +8,15 @@ from typing import List, Dict
 import httpx
 import json
 import requests
-from pymongo import MongoClient
+# from pymongo import MongoClient
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from bs4 import BeautifulSoup
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain.prompts import (
     ChatPromptTemplate,
-    HumanMessagePromptTemplate
+    HumanMessagePromptTemplate,
+    SystemMessagePromptTemplate
 )
 from langchain_community.document_loaders import WebBaseLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -28,7 +29,7 @@ load_dotenv(dotenv_path=env_path)
 
 # LLM 설정
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-llm35 = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY)
+llm35 = ChatOpenAI(model_name="gpt-4-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY)
 
 
 
@@ -62,8 +63,6 @@ def create_user_service(user_data: UserData):
     
 
 
-
-
 def read_user_service(encrypted_id: str):
     user = igeport_user_baseInfo_collection.find_one({"encrypted_id": encrypted_id}, {'_id': False})
     if user:
@@ -74,9 +73,10 @@ def read_user_service(encrypted_id: str):
 
 def read_list_service():
     users = list(igeport_user_baseInfo_collection.find({}, {'_id': False}))
-    return users
-
-
+    if users :
+        return users
+    else :
+        raise HTTPException(status_code=404, detail="Users not found")
 
 
 def read_user_blog_links(encrypted_id: str) -> list:
@@ -93,34 +93,6 @@ def read_user_questions(encrypted_id: str) -> list:
     else:
         raise HTTPException(status_code=404, detail="User or questions not found")
     
-
-
-
-def fetch_blog_contents(encrypted_id: str) -> list:
-    # 사용자의 블로그 링크를 가져옵니다.
-    blog_links = read_user_blog_links(encrypted_id)
-    blog_contents = []
-
-    for url in blog_links:
-        try:
-            # 각 블로그 URL로부터 HTML 내용을 가져옵니다.
-            response = requests.get(url)
-            response.raise_for_status()  # 에러가 발생하면 예외를 발생시킵니다.
-
-            # BeautifulSoup을 사용하여 HTML 내용을 파싱합니다.
-            soup = BeautifulSoup(response.text, 'html.parser')
-
-            # 필요한 텍스트 정보를 추출합니다.
-            # 이 예제에서는 전체 <body> 태그의 텍스트를 추출합니다.
-            # 실제 사용 사례에 따라 적절한 태그 및 선택자를 사용하여 조정해야 합니다.
-            content = soup.body.get_text(separator=' ', strip=True)
-            blog_contents.append(content)
-        except requests.RequestException as e:
-            # 요청 중 에러가 발생하면, 에러 메시지와 함께 계속 진행합니다.
-            print(f"Error fetching {url}: {e}")
-            continue
-
-    return blog_contents
 
 def read_user_blog_links(encrypted_id: str) -> list:
     # 예시: MongoDB 컬렉션에서 사용자 정보를 조회합니다.
@@ -145,60 +117,413 @@ def split_text(docs):
     return splits
 
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from concurrent.futures import ThreadPoolExecutor
+
+def create_init_prompt():
+    return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
+                """
+                you are a helpful summary assistant who summarizes the text in 10 sentences, and finds various emotions like sad, in the text, 
+                and finds words related to happiness in the text. pelase answer with korean.            
+                """
+                ),
+            HumanMessagePromptTemplate.from_template(
+                """
+                ### Example Input
+                Question: Summarize this article, find emotions related to happiness and sadness, and identify words that are not directly emotional but are related to happiness.
+                Context: Today's trip to Sydney was fun. In the morning, I had morning bread and steak, and then I bought a music box at a nearby souvenir shop.
+                For lunch, I enjoyed a course meal with wine at a restaurant overlooking the sea. In the evening, I had fun making new friends at a fireworks festival.
+                I really enjoyed this trip and would love to come back again.
+
+                ### Example Output
+                The story of a truly fun Sydney trip with music boxes, the sea, and a fireworks festival.
+                In the morning, I started a joyful day by eating steak and bread.
+                I was happy to buy a music box at the memorial hall, and I enjoyed the course meal at the seaside restaurant.
+                I made various friends while enjoying the fireworks.
+                This post is about visiting Sydney, experiencing various things, making friends, and capturing good memories.
+
+                During the trip, eating morning bread and steak made me feel happy, and this trip was really enjoyable, showing a sense of happiness about the trip.
+
+                And the words steak, wine, and beach are associated with happiness.
+
+                ### Input
+                Question: Summarize this article, find emotions related to happiness and sadness, and identify words that are not directly emotional but are related to happiness.
+                Context: {context}
+
+                ### Output
+
+
+                """
+            )])
+
+
+def create_prompt(type):
+    # 글 요약 프롬프트
+    if type == 1: 
+        return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
+                """
+                you are a helpful summary assistant that make Great summary using 8 sentence and short answer type
+                """
+                ),
+            HumanMessagePromptTemplate.from_template(
+                """
+                ### 예시 입력
+                Question: 이 블로그 글을 요약해줄 수 있어?
+                Context: 오늘의 시드니 여행은 재미있었다. 오늘은 아침에 모닝빵과 스테이크를 먹었고 그 다음으로 근처 기념품관에서 오르골을 샀다.
+                점심에는 바다가 보이는 레스토랑에서 와인과 함께 코스요리를 즐겼다. 저녁은 불꽃 축제와 함께 재미있는 친구들을 사귀며 놀았다. 
+                이번 여행은 정말 재미있었고 다음에도 다시 왔으면 좋겠다.
+
+                ### 예시 출력
+                오르골과 바다 그리고 불꽃축제와 함께 했던 정말 재미있었던 시드니 여행
+
+                ### 입력
+                Question: 이 블로그 글을 요약해줘
+                Context: {context}
+
+                ### 출력
+
+                """
+            )])
+    # 감정물결 프롬프트
+    elif type == 2:
+        return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
+                """
+                you are a helpful assistant that analysis emotion using our input and you must give us format is JSON,
+                you must return JSON 
+                we determine JSON format which each of emotion is key that is string, percentage is value that is integer
+                and you must Present an answer in a format that exists as JSON using ()
+                The format should be JSON
+                """
+                ),
+            HumanMessagePromptTemplate.from_template(
+                """
+                ### 예시 입력
+                Question: 이 블로그의 텍스트를 분석하여, 작성자가 글을 작성하며 경험했을 것으로 추정되는 주요 감정과 그 강도를 설명해주세요.
+                Context: (관련 내용이 있는 블로그 한개)
+
+                ### 예시 출력
+                Answer : JSON
+
+                ### 입력
+                Question: 이 블로그의 내용을 분석하여, 작성자가 경험했을 것으로 추정되는 감정과 그 감정의 강도를 설명해주세요. 
+                각 감정은 happy, joy, anxious, depressed, anger, sadness으로 구분해 설명하고, 각각의 감정이 글에서 어떻게 표현되었는지에 대한 예시를 포함해주세요.
+                Context: {context}
+
+                ### 출력
+                Answer: """
+        )])
+    # 감정 SOS
+    elif type == 3:
+        return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
+                """
+                you are a helpful assistant that analysis emotion using our input and you must give us format is JSON,
+                you must return JSON 
+                we determine JSON format which each of bad emotion is key that is string, percentage is value that is integer
+                and you must Present an answer in a format that exists as JSON using ()               
+                The format should be JSON
+                """
+            ),
+            HumanMessagePromptTemplate.from_template(
+               """
+                ### 예시 입력
+                Question: 이 블로그의 텍스트를 분석하여, 작성자가 글을 작성하며 경험했을 것으로 추정되는 안좋은 감정과 그 강도를 설명해주세요.
+                Context: (관련 내용이 있는 블로그 한개)
+
+                ### 예시 출력
+                Answer : JSON 
+
+                ### 입력
+                Question: 이 블로그의 내용을 분석하여, 작성자가 경험했을 것으로 추정되는 안좋은 감정과 그 감정의 강도를 설명해주세요. 
+                각 감정은 sadness, anger, depressed, anxious 로 구분해 설명하고, 각각의 감정이 글에서 어떻게 표현되었는지에 대한 예시를 포함해주세요.
+                Context: {context}
+
+                ### 출력
+                Answer: """
+            )])
+    # 힐링키워드
+    elif type == 4:
+        return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
+                """
+                You are a useful helper that uses our input to analyze sentiment.
+                you must return JSON 
+                You tell us what objects, food, etc. the user was happy with via the input. The format should be JSON that you must key is happy word that string, value is happy intensity that integer
+                i will use your answer for JSON.
+                The format should be JSON
+                """
+            ),
+            HumanMessagePromptTemplate.from_template(
+                """
+                ### 예시 입력
+                Question: 이 블로그의 텍스트를 분석하여, 작성자가 어떠한 사물, 사람, 음식 등 행복감을 느꼈던 키워드가 무엇인지 단어를 추출해주세요(영어로 출력 바랍니다)
+                Context: (관련 내용이 있는 블로그 글들)
+
+                ### 예시 출력
+                Answer : 블로그 내용들 중 행복감을 느끼게 했던 key word를 영어로 뽑아내서, 이의 강도를 같이 출력합니다.
+
+                ### 입력
+                Question: 이 블로그의 내용을 분석하여, 작성자가 행복감을 느꼈던 요소 반드시 다섯개만 출력하도록.
+                작성자가 행복감을 느꼈던 요소를 분석 할 때, 문맥을 통해 분석해주길 바랍니다. "행복함","즐거움","기쁨" 이런식으로 행복과 연관된 직접적인 단어들이 아닌,
+                사물, 사람, 음식 등 "단어"를 추출해주세요. 이 단어들은 영어로 출력해주세요
+                그리고 요소로 인해 어느정도 행복했는지 각각의 강도를 백분율로 설명해주세요.
+                Context: {context}
+
+                ### 출력
+                Answer:  """
+            )])
+    elif type == 5:
+        return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
+                """
+                You are a wise psychologist who must give us answers in json format (analyzing the Big 5 personality types),
+                we determine JSON format which each of emotion is key that is string, score is value that is integer
+                and you must Present an answer in a format that exists as JSON using ()
+                """
+                ),
+            HumanMessagePromptTemplate.from_template(
+                """
+                ### 예시 입력
+                Question: 이건 사용자가 쓴 블로그 글이랑 사용자가 고른 big5 question의 문항 중 하나야. 이걸로 개방성, 성실성, 외향성, 우호성, 신경성에 대해 백분율 점수로 정리해줘
+                answer: (user가 답한 대답들)
+                Context: (user가 쓴 블로그 글)
+
+                ### 예시 출력
+                "openness" : 60,
+                "sincerity" : 55,
+                "extroversion" : 41,
+                "friendliness" : 32,
+                "neuroticism" : 60
+
+                ### 입력
+                Question: 이건 big5 question의 문항 중 하나야. 이걸로 개방성, 성실성, 외향성, 우호성, 신경성에 대해 백분율 점수로 정리해줘
+                answer: {answers}
+                Context: {context}
+
+                ### 출력
+                """
+            )])
+    # 최종 솔루션
+    elif type == 6:
+        return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
+                """
+                you are a helpful summary assistant that make Great summary, Through emotion, big5 information, happiness keywords, and blog posts,
+                you help summarize and organize user information professionally. and you must speak korean. don't answer need more data
+                """
+                ),
+                HumanMessagePromptTemplate.from_template(
+                """
+                ### 예시 입력
+                Question: 다음과 같은 정보들로 사용자를 요약해줘
+                emotion : ("happy" : 81, "sadness" : 21, "anger : 11, "joy" : 91, "depressed" : 1, "anxious" : 23)
+                big : ("openness" : 60, "sincerity" : 55, "extroversion" : 41, "friendliness" : 76, "neuroticism" : 30 )
+                word : ("dog": 80, "chicken": 70, "beef": 75, "taylor swift": 65, "day6": 60)
+                Context: (user가 쓴 블로그 글)
+
+                ### 예시 출력
+                Answer: 종합적으로 다양한 감정 중 기쁨 감정이 상대적으로 높고 개나 치킨과 같은 단어가 행복함을 잘 표현하는 것으로 보아
+                사용자는 개나 치킨 등의 귀엽고 맛있는 것을 좋아하는 것으로 보이며 블로그 글 등에서 확인 할 수 있었습니다.
+                그리고 글의 작성 요령이나 big5 결과를 보았을 때 딱히 크게 예민하지 않고 외향적인 사람으로써 바캉스를 매우 잘 즐길 수 있는 성격이라고 
+                보여집니다. 따라서 다양한 액티비티한 활동과 여행이 사용자의 행복감을 증가시켜줄 것이며 부정적인 감정들을 없애 줄 것입니다.
+
+                ### 입력
+                Question: 다음과 같은 정보들로 사용자를 요약해줘
+                emotion : {emotion}
+                big : {big5}
+                word : {word}
+                Context: {context}
+
+                ### 출력
+                Answer: 
+                """
+            )])
+
+
+
+def get_init4(split_docs):
+    #analy_1 = create_prompt(1).format_prompt(context=split_docs[0]).to_messages()
+
+    analyze_1 = create_init_prompt().format_prompt(context=split_docs[0]).to_messages()
+    analyze_2 = create_init_prompt().format_prompt(context=split_docs[1]).to_messages()
+    analyze_3 = create_init_prompt().format_prompt(context=split_docs[2]).to_messages()
+    analyze_4 = create_init_prompt().format_prompt(context=split_docs[3]).to_messages()
+
+    analyze_1 = llm35(analyze_1)
+    analyze_2 = llm35(analyze_2)
+    analyze_3 = llm35(analyze_3)
+    analyze_4 = llm35(analyze_4)
+
+    result = {
+    "1st": analyze_1.content,
+    "2nd": analyze_2.content,
+    "3rd": analyze_3.content,
+    "4th": analyze_4.content
+}
+
+    return result
+
+
+
+def get_sammary(split_docs):
+    answers_1 = create_prompt(1).format_prompt(context=split_docs[0]).to_messages()
+    answers_1 = llm35(answers_1)
+    answers_2 = create_prompt(1).format_prompt(context=split_docs[1]).to_messages()
+    answers_2 = llm35(answers_2)
+    answers_3 = create_prompt(1).format_prompt(context=split_docs[2]).to_messages()
+    answers_3 = llm35(answers_3)
+    answers_4 = create_prompt(1).format_prompt(context=split_docs[3]).to_messages()
+    answers_4 = llm35(answers_4)
+
+    summary = {
+        "1st": answers_1.content,
+        "2nd": answers_2.content,
+        "3rd": answers_3.content,
+        "4th": answers_4.content
+    }
+
+    return summary
+
+
+def get_emotions(docs):
+    answers_1 = create_prompt(2).format_prompt(context=docs['1st']).to_messages()
+    answers_1 = llm35(answers_1)
+    answers_2 = create_prompt(2).format_prompt(context=docs['2nd']).to_messages()
+    answers_2 = llm35(answers_2)
+    answers_3 = create_prompt(2).format_prompt(context=docs['3rd']).to_messages()
+    answers_3 = llm35(answers_3)
+    answers_4 = create_prompt(2).format_prompt(context=docs['4th']).to_messages()
+    answers_4 = llm35(answers_4)
+
+
+    result = {
+        "answer_1": answers_1.content,
+        "answer_2": answers_2.content,
+        "answer_3": answers_3.content,
+        "answer_4": answers_4.content
+    }
+
+
+    return result
+
+def get_sos(docs):
+    answers_1 = create_prompt(3).format_prompt(context=docs['1st']).to_messages()
+    answers_1 = llm35(answers_1)
+    answers_2 = create_prompt(3).format_prompt(context=docs['2nd']).to_messages()
+    answers_2 = llm35(answers_2)
+    answers_3 = create_prompt(3).format_prompt(context=docs['3rd']).to_messages()
+    answers_3 = llm35(answers_3)
+    answers_4 = create_prompt(3).format_prompt(context=docs['4th']).to_messages()
+    answers_4 = llm35(answers_4)
+
+
+    # 모든 결과를 하나의 딕셔너리로 합침
+    result = {
+        "answer_1": answers_1.content,
+        "answer_2": answers_2.content,
+        "answer_3": answers_3.content,
+        "answer_4": answers_4.content
+    }
+
+    return result
+
+def get_happyKeyword(docs):
+    answers_1 = create_prompt(4).format_prompt(context=docs['1st']).to_messages()
+    answers_1 = llm35(answers_1)
+    answers_2 = create_prompt(4).format_prompt(context=docs['2nd']).to_messages()
+    answers_2 = llm35(answers_2)
+    answers_3 = create_prompt(4).format_prompt(context=docs['3rd']).to_messages()
+    answers_3 = llm35(answers_3)
+    answers_4 = create_prompt(4).format_prompt(context=docs['4th']).to_messages()
+    answers_4 = llm35(answers_4)
+    result = {
+        "answer_1": answers_1.content,
+        "answer_2": answers_2.content,
+        "answer_3": answers_3.content,
+        "answer_4": answers_4.content
+    }
+    
+
+    return result
+
+def get_big5(docs, answers):
+    answers = ', '.join(answers)
+    answers_1 = create_prompt(5).format_prompt(answers= answers, context=docs['1st']).to_messages()
+    answers_1 = llm35(answers_1)
+    answers_2 = create_prompt(5).format_prompt(answers= answers, context=docs['2nd']).to_messages()
+    answers_2 = llm35(answers_2)
+    answers_3 = create_prompt(5).format_prompt(answers= answers, context=docs['3rd']).to_messages()
+    answers_3 = llm35(answers_3)
+    answers_4 = create_prompt(5).format_prompt(answers= answers, context=docs['4th']).to_messages()
+    answers_4 = llm35(answers_4)
+    result = {
+        "answer_1": answers_1.content,
+        "answer_2": answers_2.content,
+        "answer_3": answers_3.content,
+        "answer_4": answers_4.content
+    }
+    
+
+    return result
+
+
+
+def get_solution(emotion, big5, word, docs):
+    solution = create_prompt(6).format_prompt(emotion = emotion, big5 = big5, word = word, context = docs).to_messages()
+    solution = llm35(solution)
+    return solution.content
+
+
 
 def generate_igeport(encrypted_id: str):
-    blogs = read_user_blog_links(encrypted_id)  # 사용자 블로그 링크 읽기
-    blog_text = url_to_text(blogs)  # URL에서 텍스트 추출
-    docs = split_text(blog_text)  # 텍스트 분할
+    blog_urls = read_user_blog_links(encrypted_id)
+    blog_docs = url_to_text(blog_urls)
+    # print(blog_docs[0])
+    # print('*' * 100)
+    # print(blog_docs[1])
+    # print('*' * 100)
+    # print(blog_docs[2])
+    # print('*' * 100)
+    # print(blog_docs[3])
 
-    answers = read_user_questions(encrypted_id)
-    # 병렬 처리를 위한 작업 목록 생성
-    tasks = {
-        "summary": f"Don't say thank you at the end of a sentence. Please write from the user's perspective. {docs} 블로그 내용들인데, 총 4개의 블로그를 각각 200 ~ 300자 이내로 요약해줘 그리고 각각의 블로그 마다 너가 임의의 제목을 붙혀줘",
-        "emotion": f"Don't say thank you at the end of a sentence. Please write from the user's perspective. {docs} 블로그 내용들인데, 각각의 블로그에서 감정을 중점으로 설명해줘, 예를들어 친구들과 불꽃놀이를 봐서 즐거웠지만, 이후 집을 갈때 택시를 잡지 못해 화난 감정을 확인할수 있었습니다, 이런식으로",
-        "emotion_sos": f"Don't say thank you at the end of a sentence. Please write from the user's perspective. {docs} 블로그 내용들인데, 블로그 내용에서 슬픔, 화남,우울, 불안이 각각 어느 정도인지 수치적으로 표현해줘, MAX를 10으로 봤을떄, 예를들어 슬픔 : 4, 화남: 2, 우울 :0, 불안 : 1 이런식으로 수치화 해줘, 그리고 왜 그렇게 분석했는지 짧게 요약해줘",
-        "happy_keyword": f"You are a useful helper that uses our input to analyze sentiment.You tell us what objects, food, etc. the user was happy with via the input. The format should be JSON that you must key is happy word that string, value is happy intensity that integer i will use your answer for JSON.format. {docs} 블로그 내용들인데, 여기서 행복과 관련이 많은 단어를 찾아줘, 그리고 왜 행복한지도 분석해줘"
-        }
-    results = {}
-    with ThreadPoolExecutor(max_workers=4) as executor:
-        # Future 객체를 작업과 매핑
-        future_to_task = {executor.submit(llm35.predict, task): name for name, task in tasks.items()}
+    user_answers = read_user_questions(encrypted_id)
+    print(user_answers)
 
-        # 완료된 작업 처리
-        for future in as_completed(future_to_task):
-            task_name = future_to_task[future]
+    # 각 블로그에서 요약, 감정분석, 힐링키워드를 모두 담아둔다.
+    inital_4 = get_init4(blog_docs)
+    blog_summarys = get_sammary(blog_docs)
+    emotions_wave = get_emotions(blog_summarys)
+    emotions_sos = get_sos(blog_summarys)
+    happy_keyword = get_happyKeyword(inital_4)
+    big5 = get_big5(blog_summarys, user_answers)
+    solution = get_solution(emotions_wave, emotions_sos, happy_keyword, blog_summarys)
+
+    data = {
+        "emotions_wave" : emotions_wave,
+        "emotions_sos" : emotions_sos,
+        "happy_keyword" : happy_keyword,
+        "big5" : big5
+    }
+
+    parsed_data = {}
+    for category, answers in data.items():
+        parsed_data[category] = {}
+        for key, value in answers.items():
             try:
-                result = future.result()
-            except Exception as exc:
-                print(f'{task_name} generated an exception: {exc}')
-            else:
-                results[task_name] = result
+                # 'emotions_sos'의 answer_1을 제외하고 모든 JSON 파싱 시도
+                if category == "emotions_sos" and key == "answer_1":
+                    # 올바른 JSON 형식으로 수정
+                    corrected_value = value.replace('("Answer": ', '{').replace('})', '}')
+                    parsed_data[category][key] = json.loads(corrected_value)
+                else:
+                    parsed_data[category][key] = json.loads(value)
+            except json.JSONDecodeError as e:
+                print(f"Error parsing JSON for {key}: {e}")
+
+    result ={
+        "blog_summarys" : blog_summarys,
+        "emotions_wave": parsed_data['emotions_wave'],
+        "emotions_sos": parsed_data['emotions_sos'],
+        "happy_keyword": parsed_data['happy_keyword'],
+        "big_5" : parsed_data['big5'],
+        "solution" : solution
+    }
 
 
-    summary = results['summary']
-    emotion = results['emotion']
-    emotion_sos = results['emotion_sos']
-    happy_keyword = results['happy_keyword']
-
-
-    answer_1 = summary
-    answer_2 = emotion
-    answer_3 = emotion_sos
-    answer_4 = llm35.predict(f"Don't say thank you at the end of a sentence. Speak like a psychoanalyst. {summary}이게 사용자의 블로그 내용이고, {emotion_sos} 가 사용자의 안좋은 감정들이고, {answers} 이게 본인이 판단한 본인의 모습이야, 이를 통해서 사용자가 행복을 느낄떄 나타나고, 실질적으로 감정은 아니지만, 행복과 관련된 단어가 나올떄 마다 같이 등장하는 단어 10개 정도 추천해줘. 행복, 유쾌함 이런거 말고.")
-    answer_5 = llm35.predict(f"Don't say thank you at the end of a sentence. Speak like a psychoanalyst. {answers} 이게 사용자 자신이 자신을 평가 한 건데, {summary}를 보고 사용자의 성격을  개방성, 성실성, 외향성, 우호성, 신경증 측면에서 각각 분석해서 각각 max를 10으로 했을떄 어느정도인지 짧은 설명과 함께 수치적으로 분석해줘")
-    answer_6 = llm35.predict(f"Don't say thank you at the end of a sentence. Speak like a psychoanalyst.  {answer_1}, {answer_2}, {answer_3}, {answer_4},{answer_5}를 모두 활용해서 사용자가 앞으로 어떤식으로 살아가야할지에 대해 분석해줘. 예를 들어 불안함 감정이 있다면 어떻게 해결해야하고, 또 어떤 성격은 좋으니깐 계속 유지해야되고 이런식으로")
-
-
-    result= {
-            "result": {
-                "블로그 내용 요약": answer_1,
-                "감정 물결": answer_2,
-                "감정 SOS": answer_3,
-                "힐링 키워드": answer_4,
-                "성격 유형 검사": answer_5,
-                "솔루션" : answer_6
-            }
-        }
-    
     return result
