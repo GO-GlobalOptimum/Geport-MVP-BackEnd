@@ -29,7 +29,7 @@ load_dotenv(dotenv_path=env_path)
 
 # LLM 설정
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-llm35 = ChatOpenAI(model_name="gpt-4-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY,request_timeout=500)
+llm35 = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY,request_timeout=500)
 
 
 
@@ -527,3 +527,18 @@ def generate_igeport(encrypted_id: str):
 
 
     return result
+
+
+def server_timeout_test(encrypted_id:str):
+    blog_urls = read_user_blog_links(encrypted_id)
+    blog_docs = url_to_text(blog_urls)
+
+    # 각 블로그에서 요약, 감정분석, 힐링키워드를 모두 담아둔다.
+    inital_4 = get_init4(blog_docs)
+    return inital_4    
+
+
+
+    
+
+
