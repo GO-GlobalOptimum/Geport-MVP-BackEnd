@@ -29,7 +29,7 @@ load_dotenv(dotenv_path=env_path)
 
 # LLM 설정
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-llm35 = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY)
+llm35 = ChatOpenAI(model_name="gpt-4-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY)
 
 
 
@@ -123,7 +123,7 @@ from concurrent.futures import ThreadPoolExecutor
 def create_init_prompt():
     return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
                 """
-                You are a helper who summarizes the text in 8 sentences, finds various emotions in the text, 
+                you are a helpful summary assistant who summarizes the text in 10 sentences, and finds various emotions like sad, in the text, 
                 and finds words related to happiness in the text. pelase answer with korean.            
                 """
                 ),
@@ -190,7 +190,7 @@ def create_prompt(type):
                 """
                 you are a helpful assistant that analysis emotion using our input and you must give us format is JSON,
                 we determine JSON format which each of emotion is key that is string, percentage is value that is integer
-                and you must Present an answer in a format that exists as JSON using json.loads()
+                and you must Present an answer in a format that exists as JSON using ()
                 """
                 ),
             HumanMessagePromptTemplate.from_template(
@@ -216,7 +216,7 @@ def create_prompt(type):
                 """
                 you are a helpful assistant that analysis emotion using our input and you must give us format is JSON,
                 we determine JSON format which each of bad emotion is key that is string, percentage is value that is integer
-                and you must Present an answer in a format that exists as JSON using json.loads()                """
+                and you must Present an answer in a format that exists as JSON using ()                """
             ),
             HumanMessagePromptTemplate.from_template(
                """
@@ -269,7 +269,7 @@ def create_prompt(type):
                 """
                 You are a wise psychologist who must give us answers in json format (analyzing the Big 5 personality types),
                 we determine JSON format which each of emotion is key that is string, score is value that is integer
-                and you must Present an answer in a format that exists as JSON using json.loads()
+                and you must Present an answer in a format that exists as JSON using ()
                 """
                 ),
             HumanMessagePromptTemplate.from_template(
@@ -344,11 +344,6 @@ def get_init4(split_docs):
     analyze_3 = llm35(analyze_3)
     analyze_4 = llm35(analyze_4)
 
-    print(analyze_1)
-    print(analyze_2)
-    print(analyze_3)
-    print(analyze_4)
-
     result = {
     "1st": analyze_1.content,
     "2nd": analyze_2.content,
@@ -359,16 +354,127 @@ def get_init4(split_docs):
     return result
 
 
+
+def get_sammary(split_docs):
+    answers_1 = create_prompt(1).format_prompt(context=split_docs[0]).to_messages()
+    answers_1 = llm35(answers_1)
+    answers_2 = create_prompt(1).format_prompt(context=split_docs[1]).to_messages()
+    answers_2 = llm35(answers_2)
+    answers_3 = create_prompt(1).format_prompt(context=split_docs[2]).to_messages()
+    answers_3 = llm35(answers_3)
+    answers_4 = create_prompt(1).format_prompt(context=split_docs[3]).to_messages()
+    answers_4 = llm35(answers_4)
+
+    summary = {
+        "1st": answers_1.content,
+        "2nd": answers_2.content,
+        "3rd": answers_3.content,
+        "4th": answers_4.content
+    }
+
+    return summary
+
+
+def get_emotions(docs):
+    answers_1 = create_prompt(2).format_prompt(context=docs['1st']).to_messages()
+    answers_1 = llm35(answers_1)
+    answers_2 = create_prompt(2).format_prompt(context=docs['2nd']).to_messages()
+    answers_2 = llm35(answers_2)
+    answers_3 = create_prompt(2).format_prompt(context=docs['3rd']).to_messages()
+    answers_3 = llm35(answers_3)
+    answers_4 = create_prompt(2).format_prompt(context=docs['4th']).to_messages()
+    answers_4 = llm35(answers_4)
+
+
+    # 모든 결과를 하나의 딕셔너리로 합침
+    result = {
+        "answer_1": answers_1.content,
+        "answer_2": answers_2.content,
+        "answer_3": answers_3.content,
+        "answer_4": answers_4.content
+    }
+
+    # 합쳐진 결과 반환
+    return result
+
+def get_sos(docs):
+    answers_1 = create_prompt(3).format_prompt(context=docs['1st']).to_messages()
+    answers_1 = llm35(answers_1)
+    answers_2 = create_prompt(3).format_prompt(context=docs['2nd']).to_messages()
+    answers_2 = llm35(answers_2)
+    answers_3 = create_prompt(3).format_prompt(context=docs['3rd']).to_messages()
+    answers_3 = llm35(answers_3)
+    answers_4 = create_prompt(3).format_prompt(context=docs['4th']).to_messages()
+    answers_4 = llm35(answers_4)
+
+
+    # 모든 결과를 하나의 딕셔너리로 합침
+    result = {
+        "answer_1": answers_1.content,
+        "answer_2": answers_2.content,
+        "answer_3": answers_3.content,
+        "answer_4": answers_4.content
+    }
+
+    # 합쳐진 결과 반환
+    return result
+
+def get_happyKeyword(docs):
+    answers_1 = create_prompt(4).format_prompt(context=docs['1st']).to_messages()
+    answers_1 = llm35(answers_1)
+    answers_2 = create_prompt(4).format_prompt(context=docs['2nd']).to_messages()
+    answers_2 = llm35(answers_2)
+    answers_3 = create_prompt(4).format_prompt(context=docs['3rd']).to_messages()
+    answers_3 = llm35(answers_3)
+    answers_4 = create_prompt(4).format_prompt(context=docs['4th']).to_messages()
+    answers_4 = llm35(answers_4)
+
+
+    # 모든 결과를 하나의 딕셔너리로 합침
+    result = {
+        "answer_1": answers_1.content,
+        "answer_2": answers_2.content,
+        "answer_3": answers_3.content,
+        "answer_4": answers_4.content
+    }
+
+    return result
+
+
+
 def generate_igeport(encrypted_id: str):
     blog_urls = read_user_blog_links(encrypted_id)
     blog_docs = url_to_text(blog_urls)
-    split_docs = split_text(blog_docs)
-    #print(split_docs)
+    # print(blog_docs[0])
+    # print('*' * 100)
+    # print(blog_docs[1])
+    # print('*' * 100)
+    # print(blog_docs[2])
+    # print('*' * 100)
+    # print(blog_docs[3])
 
     answers = read_user_questions(encrypted_id)
 
     # 각 블로그에서 요약, 감정분석, 힐링키워드를 모두 담아둔다.
-    inital_4 = get_init4(split_docs)
+    inital_4 = get_init4(blog_docs)
+    blog_summarys = get_sammary(blog_docs)
+    emotions_wave = get_emotions(blog_summarys)
+    emotions_sos = get_sos(blog_summarys)
+    happy_keyword = get_happyKeyword(inital_4)
+
+    result ={
+        "blog_summarys" : blog_summarys,
+        "emotions_wave" : emotions_wave,
+        "emotions_sos" : emotions_sos,
+        "happy_keyword" : happy_keyword
+    }
 
 
-    return inital_4
+    return result
+
+
+
+
+
+
+
