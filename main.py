@@ -1,6 +1,5 @@
 from typing import Union
 from fastapi import FastAPI, HTTPException
-from pymongo import MongoClient
 from pydantic import BaseModel
 import os
 import logging
