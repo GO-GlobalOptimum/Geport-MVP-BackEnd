@@ -294,7 +294,7 @@ def create_prompt(type):
 
                 ### 입력
                 Question: 이건 big5 question의 문항 중 하나야. 이걸로 개방성, 성실성, 외향성, 우호성, 신경성에 대해 백분율 점수로 정리해줘
-                answer: {user}
+                answer: {answers}
                 Context: {context}
 
                 ### 출력
@@ -443,13 +443,14 @@ def get_happyKeyword(docs):
     return result
 
 def get_big5(docs, answers):
-    answers_1 = create_prompt(5).format_prompt(context=docs['1st'], user = answers[0]).to_messages()
+    answers = ', '.join(answers)
+    answers_1 = create_prompt(5).format_prompt(answers= answers, context=docs['1st']).to_messages()
     answers_1 = llm35(answers_1)
-    answers_2 = create_prompt(5).format_prompt(context=docs['2nd']).to_messages()
+    answers_2 = create_prompt(5).format_prompt(answers= answers, context=docs['2nd']).to_messages()
     answers_2 = llm35(answers_2)
-    answers_3 = create_prompt(5).format_prompt(context=docs['3rd']).to_messages()
+    answers_3 = create_prompt(5).format_prompt(answers= answers, context=docs['3rd']).to_messages()
     answers_3 = llm35(answers_3)
-    answers_4 = create_prompt(5).format_prompt(context=docs['4th']).to_messages()
+    answers_4 = create_prompt(5).format_prompt(answers= answers, context=docs['4th']).to_messages()
     answers_4 = llm35(answers_4)
     result = {
         "answer_1": answers_1.content,
@@ -463,54 +464,66 @@ def get_big5(docs, answers):
 
 
 
+def get_solution(emotion, big5, word, docs):
+    solution = create_prompt(6).format_prompt(emotion = emotion, big5 = big5, word = word, context = docs).to_messages()
+    solution = llm35(solution)
+    return solution.content
+
+
+
 def generate_igeport(encrypted_id: str):
-    # blog_urls = read_user_blog_links(encrypted_id)
-    # blog_docs = url_to_text(blog_urls)
-    # # print(blog_docs[0])
-    # # print('*' * 100)
-    # # print(blog_docs[1])
-    # # print('*' * 100)
-    # # print(blog_docs[2])
-    # # print('*' * 100)
-    # # print(blog_docs[3])
+    blog_urls = read_user_blog_links(encrypted_id)
+    blog_docs = url_to_text(blog_urls)
+    # print(blog_docs[0])
+    # print('*' * 100)
+    # print(blog_docs[1])
+    # print('*' * 100)
+    # print(blog_docs[2])
+    # print('*' * 100)
+    # print(blog_docs[3])
 
-    answers = read_user_questions(encrypted_id)
-    print(answers)
+    user_answers = read_user_questions(encrypted_id)
+    print(user_answers)
 
-    # # 각 블로그에서 요약, 감정분석, 힐링키워드를 모두 담아둔다.
-    # inital_4 = get_init4(blog_docs)
-    # blog_summarys = get_sammary(blog_docs)
-    # emotions_wave = get_emotions(blog_summarys)
-    # emotions_sos = get_sos(blog_summarys)
-    # happy_keyword = get_happyKeyword(inital_4)
+    # 각 블로그에서 요약, 감정분석, 힐링키워드를 모두 담아둔다.
+    inital_4 = get_init4(blog_docs)
+    blog_summarys = get_sammary(blog_docs)
+    emotions_wave = get_emotions(blog_summarys)
+    emotions_sos = get_sos(blog_summarys)
+    happy_keyword = get_happyKeyword(inital_4)
+    big5 = get_big5(blog_summarys, user_answers)
+    solution = get_solution(emotions_wave, emotions_sos, happy_keyword, blog_summarys)
 
-    # data = {
-    #     "emotions_wave" : emotions_wave,
-    #     "emotions_sos" : emotions_sos,
-    #     "happy_keyword" : happy_keyword
-    # }
+    data = {
+        "emotions_wave" : emotions_wave,
+        "emotions_sos" : emotions_sos,
+        "happy_keyword" : happy_keyword,
+        "big5" : big5
+    }
 
-    # parsed_data = {}
-    # for category, answers in data.items():
-    #     parsed_data[category] = {}
-    #     for key, value in answers.items():
-    #         try:
-    #             # 'emotions_sos'의 answer_1을 제외하고 모든 JSON 파싱 시도
-    #             if category == "emotions_sos" and key == "answer_1":
-    #                 # 올바른 JSON 형식으로 수정
-    #                 corrected_value = value.replace('("Answer": ', '{').replace('})', '}')
-    #                 parsed_data[category][key] = json.loads(corrected_value)
-    #             else:
-    #                 parsed_data[category][key] = json.loads(value)
-    #         except json.JSONDecodeError as e:
-    #             print(f"Error parsing JSON for {key}: {e}")
+    parsed_data = {}
+    for category, answers in data.items():
+        parsed_data[category] = {}
+        for key, value in answers.items():
+            try:
+                # 'emotions_sos'의 answer_1을 제외하고 모든 JSON 파싱 시도
+                if category == "emotions_sos" and key == "answer_1":
+                    # 올바른 JSON 형식으로 수정
+                    corrected_value = value.replace('("Answer": ', '{').replace('})', '}')
+                    parsed_data[category][key] = json.loads(corrected_value)
+                else:
+                    parsed_data[category][key] = json.loads(value)
+            except json.JSONDecodeError as e:
+                print(f"Error parsing JSON for {key}: {e}")
 
-    # result ={
-    #     "blog_summarys" : blog_summarys,
-    #     "emotions_wave": parsed_data['emotions_wave'],
-    #     "emotions_sos": parsed_data['emotions_sos'],
-    #     "happy_keyword": parsed_data['happy_keyword']
-    # }
+    result ={
+        "blog_summarys" : blog_summarys,
+        "emotions_wave": parsed_data['emotions_wave'],
+        "emotions_sos": parsed_data['emotions_sos'],
+        "happy_keyword": parsed_data['happy_keyword'],
+        "big_5" : parsed_data['big5'],
+        "solution" : solution
+    }
 
 
-    # return result
+    return result
