@@ -26,8 +26,8 @@ load_dotenv(dotenv_path=env_path)
 
 # LLM 설정
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-llm4_json = ChatOpenAI(model_name="gpt-4-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY, model_kwargs={"response_format": {'type':"json_object"}}, request_timeout=300)
-llm4 = ChatOpenAI(model_name="gpt-4-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY, request_timeout=300)
+llm4_json = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY, model_kwargs={"response_format": {'type':"json_object"}}, request_timeout=300)
+llm4 = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY, request_timeout=300)
 
 
 def create_encrypted_key(name, phone):
