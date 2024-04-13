@@ -189,8 +189,10 @@ def create_prompt(type):
         return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
                 """
                 you are a helpful assistant that analysis emotion using our input and you must give us format is JSON,
+                you must return JSON 
                 we determine JSON format which each of emotion is key that is string, percentage is value that is integer
                 and you must Present an answer in a format that exists as JSON using ()
+                The format should be JSON
                 """
                 ),
             HumanMessagePromptTemplate.from_template(
@@ -200,7 +202,7 @@ def create_prompt(type):
                 Context: (관련 내용이 있는 블로그 한개)
 
                 ### 예시 출력
-                Answer : JSON 형식의 문자열
+                Answer : JSON
 
                 ### 입력
                 Question: 이 블로그의 내용을 분석하여, 작성자가 경험했을 것으로 추정되는 감정과 그 감정의 강도를 설명해주세요. 
@@ -215,8 +217,11 @@ def create_prompt(type):
         return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
                 """
                 you are a helpful assistant that analysis emotion using our input and you must give us format is JSON,
+                you must return JSON 
                 we determine JSON format which each of bad emotion is key that is string, percentage is value that is integer
-                and you must Present an answer in a format that exists as JSON using ()                """
+                and you must Present an answer in a format that exists as JSON using ()               
+                The format should be JSON
+                """
             ),
             HumanMessagePromptTemplate.from_template(
                """
@@ -225,7 +230,7 @@ def create_prompt(type):
                 Context: (관련 내용이 있는 블로그 한개)
 
                 ### 예시 출력
-                Answer : JSON 형식의 문자열
+                Answer : JSON 
 
                 ### 입력
                 Question: 이 블로그의 내용을 분석하여, 작성자가 경험했을 것으로 추정되는 안좋은 감정과 그 감정의 강도를 설명해주세요. 
@@ -240,8 +245,10 @@ def create_prompt(type):
         return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
                 """
                 You are a useful helper that uses our input to analyze sentiment.
+                you must return JSON 
                 You tell us what objects, food, etc. the user was happy with via the input. The format should be JSON that you must key is happy word that string, value is happy intensity that integer
-                i will use your answer for JSON.format
+                i will use your answer for JSON.
+                The format should be JSON
                 """
             ),
             HumanMessagePromptTemplate.from_template(
@@ -252,7 +259,6 @@ def create_prompt(type):
 
                 ### 예시 출력
                 Answer : 블로그 내용들 중 행복감을 느끼게 했던 key word를 영어로 뽑아내서, 이의 강도를 같이 출력합니다.
-                Ex."dog": 80, "chicken": 70, "beef": 75, "taylor swift": 65, "day6": 60
 
                 ### 입력
                 Question: 이 블로그의 내용을 분석하여, 작성자가 행복감을 느꼈던 요소 반드시 다섯개만 출력하도록.
@@ -386,7 +392,6 @@ def get_emotions(docs):
     answers_4 = llm35(answers_4)
 
 
-    # 모든 결과를 하나의 딕셔너리로 합침
     result = {
         "answer_1": answers_1.content,
         "answer_2": answers_2.content,
@@ -394,7 +399,7 @@ def get_emotions(docs):
         "answer_4": answers_4.content
     }
 
-    # 합쳐진 결과 반환
+
     return result
 
 def get_sos(docs):
@@ -416,7 +421,6 @@ def get_sos(docs):
         "answer_4": answers_4.content
     }
 
-    # 합쳐진 결과 반환
     return result
 
 def get_happyKeyword(docs):
@@ -428,15 +432,13 @@ def get_happyKeyword(docs):
     answers_3 = llm35(answers_3)
     answers_4 = create_prompt(4).format_prompt(context=docs['4th']).to_messages()
     answers_4 = llm35(answers_4)
-
-
-    # 모든 결과를 하나의 딕셔너리로 합침
     result = {
         "answer_1": answers_1.content,
         "answer_2": answers_2.content,
         "answer_3": answers_3.content,
         "answer_4": answers_4.content
     }
+    
 
     return result
 
@@ -462,19 +464,33 @@ def generate_igeport(encrypted_id: str):
     emotions_sos = get_sos(blog_summarys)
     happy_keyword = get_happyKeyword(inital_4)
 
-    result ={
-        "blog_summarys" : blog_summarys,
+    data = {
         "emotions_wave" : emotions_wave,
         "emotions_sos" : emotions_sos,
         "happy_keyword" : happy_keyword
     }
 
+    parsed_data = {}
+    for category, answers in data.items():
+        parsed_data[category] = {}
+        for key, value in answers.items():
+            try:
+                # 'emotions_sos'의 answer_1을 제외하고 모든 JSON 파싱 시도
+                if category == "emotions_sos" and key == "answer_1":
+                    # 올바른 JSON 형식으로 수정
+                    corrected_value = value.replace('("Answer": ', '{').replace('})', '}')
+                    parsed_data[category][key] = json.loads(corrected_value)
+                else:
+                    parsed_data[category][key] = json.loads(value)
+            except json.JSONDecodeError as e:
+                print(f"Error parsing JSON for {key}: {e}")
+
+    result ={
+        "blog_summarys" : blog_summarys,
+        "emotions_wave": parsed_data['emotions_wave'],
+        "emotions_sos": parsed_data['emotions_sos'],
+        "happy_keyword": parsed_data['happy_keyword']
+    }
+
 
     return result
-
-
-
-
-
-
-
