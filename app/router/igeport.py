@@ -1,7 +1,7 @@
 # todos.py에서 router 정의
 from fastapi import APIRouter, status
 from app.database.models import UserData
-from app.services.igeport import create_user_service, read_list_service, read_user_service, generate_igeport
+from app.services.igeport import create_user_service, read_list_service, read_user_service, generate_igeport,server_timeout_test
 
 
 router = APIRouter()
@@ -24,6 +24,13 @@ def read_list():
 def generate_geport_endpoint(encrypted_id:str):
     # service.py의 generate_geport 함수 호출
     result = generate_igeport(encrypted_id)
+    return result
+
+
+
+@router.get("/igeport/server_timout/{encrypted_id}")
+def server_test(encrypted_id:str):
+    result = server_timeout_test(encrypted_id)
     return result
 
 @router.get("/igeport/generate-dummy/{encrypted_id}") # 더미 데이터 전송
