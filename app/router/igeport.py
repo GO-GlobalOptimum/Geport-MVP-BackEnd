@@ -32,7 +32,7 @@ def dummy_data(encrypted_id: str):
     dummy_response = {
         "encrypted_id": encrypted_id,
         "result": {
-            "answer1" : {"1일차" : "1일차 내용입니다","2일차" : "2일차 내용입니다","3일차" : "3일차 내용입니다"," 4일차" : "4일차 내용입니다",},
+            "answer1" : {"1일차" : "1일차 내용입니다","2일차" : "2일차 내용입니다","3일차" : "3일차 내용입니다","4일차" : "4일차 내용입니다",},
             "answer2" : {"happy": [10,20,30,40], "joy": [40,30,20,40], "anxious": [20,20,10,10], "depressed": [0,0,10,5], "anger": [5,0,5,10], "sadness": [0,0,0,10]},
             "answer3" : {"anxious": [10,20,30,40], "depressed": [40,20,40,10], "anger": [0,10,20,40], "sadness": [40,10,20,20]},
             "answer4" : {"dog": 80, "chicken": 70, "beef": 75, "taylor swift": 65, "day6": 60},
