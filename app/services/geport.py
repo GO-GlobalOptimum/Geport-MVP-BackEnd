@@ -322,22 +322,23 @@ def generate_geport(encrypted_id: str):
                 "Geport Solution": answer_5,
             }
         }
-    
-    try:
-        # 해당 encrypted_key를 가진 문서를 찾아, geport 필드를 빈 배열로 설정합니다.
-        update_result = user_baseInfo_collection.update_one(
-            {"_id": encrypted_id},
-            {"$set": {"geport": result}}
-        )
+    return result
+    ## 데이터 베이스 저장
+    # try:
+    #     # 해당 encrypted_key를 가진 문서를 찾아, geport 필드를 빈 배열로 설정합니다.
+    #     update_result = user_baseInfo_collection.update_one(
+    #         {"_id": encrypted_id},
+    #         {"$set": {"geport": result}}
+    #     )
 
-        # 문서 업데이트가 성공적으로 이루어졌는지 확인합니다.
-        if update_result.modified_count == 0:
-            # 아무 문서도 업데이트되지 않았다면, 문서가 없는 것일 수 있습니다.
-            return {"message": "No document found with the given encrypted_key, or the geport field is already set to an empty array."}
-        else:
-            # 문서 업데이트 성공
-            return {"message": "The geport field has been successfully added or updated to an empty array."}
-    except Exception as e:
-        # 에러 처리
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    #     # 문서 업데이트가 성공적으로 이루어졌는지 확인합니다.
+    #     if update_result.modified_count == 0:
+    #         # 아무 문서도 업데이트되지 않았다면, 문서가 없는 것일 수 있습니다.
+    #         return {"message": "No document found with the given encrypted_key, or the geport field is already set to an empty array."}
+    #     else:
+    #         # 문서 업데이트 성공
+    #         return {"message": "The geport field has been successfully added or updated to an empty array."}
+    # except Exception as e:
+    #     # 에러 처리
+    #     raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
