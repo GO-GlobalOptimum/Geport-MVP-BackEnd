@@ -26,3 +26,5 @@ volumes:
 
 # docker-compose up --build 실행할떄 너무 많이 하면 docker에 너무 많이 쌓여서 아래 명령어 계속 실해해서 사용하지 않는, 이미지, 볼륨등을 한번에 제거하세요
 # docker system prune -af --volumes
+
+# docker-compose up -d --no-deps --build app 
