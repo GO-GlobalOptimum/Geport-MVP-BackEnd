@@ -183,9 +183,9 @@ def create_prompt(type):
         return ChatPromptTemplate.from_messages([
             SystemMessagePromptTemplate.from_template(
                 """
-                You are a helpful assistant that analyses emotions using our input and returns the data in JSON format. 
-                Your response should include the intensity of each emotion expressed in the text as an integer. 
-                The emotions to analyze are happiness, joy, anxiousness, depression, anger, and sadness.
+                You are a helpful assistant trained to analyze emotions from text inputs and return the data in JSON format. 
+                Your response should include the intensity of each analyzed emotion as an integer and a JSON object explaining the reasons behind these emotions based on the content analysis. 
+                The emotions to analyze are happiness, joy, anxiousness, depression, anger, and sadness. The explanation should be concise and provided in Korean.
                 """
             ),
             HumanMessagePromptTemplate.from_template(
@@ -195,11 +195,20 @@ def create_prompt(type):
                 Context: (A single blog post with relevant content)
 
                 ### 예시 출력
-                Answer: JSON
+                Answer: {{
+                    "emotions": {{
+                        "happiness": 40,
+                        "joy": 50,
+                        "anxious": 10,
+                        "depressed": 5,
+                        "anger": 20,
+                        "sadness": 15
+                    }},
+                    "contents": "이 텍스트에서 행복과 기쁨이 높게 나타난 이유는 저자가 최근 긍정적인 사건을 경험했기 때문입니다. 반면, 불안과 우울함은 낮게 나타난 것은 큰 어려움이 없었기 때문으로 보입니다."
+                }}
 
                 ### 입력
-                Question: Analyze the content of this blog to describe the emotions experienced by the author and the intensity of these emotions. 
-                List the emotions as happiness, joy, anxious, depressed, anger, sadness and provide their intensities as numerical values without any examples or detailed descriptions.
+                Question: Analyze the content of this blog to describe the emotions experienced by the author and the intensity of these emotions.
                 Context: {context}
 
                 ### 출력
@@ -232,7 +241,7 @@ def create_prompt(type):
                         "depressed": 20,
                         "anxious": 40
                     }},
-                    "explanation": "다양한 감정이 감지되는 이유는 저자가 텍스트에서 겪은 경험과 표현 때문입니다. 이는 개인적 성장과 복지에 대한 고민, 좌절과 자기 의심의 순간, 그리고 일상 생활에서 마주한 도전들을 포함합니다."
+                    "contents": "다양한 감정이 감지되는 이유는 저자가 텍스트에서 겪은 경험과 표현 때문입니다. 이는 개인적 성장과 복지에 대한 고민, 좌절과 자기 의심의 순간, 그리고 일상 생활에서 마주한 도전들을 포함합니다."
                 }}
 
                 ### 입력
@@ -433,16 +442,16 @@ def get_emotionSos(docs):
     
     # 요약 정보 추출
     sentiments = content_data['sentiments']
-    explanation = content_data['explanation']
+    contents = content_data['contents']
     print('BIG_5' * 100)
     print("*" * 200)
     print(sentiments)
     print("*" * 200)
-    print(explanation)
+    print(contents)
 
     result = {
         "emotions": sentiments,
-        "explanation": explanation
+        "contents": contents
     }
 
     return json.dumps(result, ensure_ascii=False)
