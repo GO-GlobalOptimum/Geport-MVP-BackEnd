@@ -5,7 +5,6 @@ from app.database.models import UserData, UserQuestions
 from app.database.connection import user_baseInfo_collection
 import os
 import json
-from pymongo import MongoClient
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from bs4 import BeautifulSoup
