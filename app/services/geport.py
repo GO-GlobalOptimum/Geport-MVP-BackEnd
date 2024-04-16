@@ -383,7 +383,7 @@ def create_prompt(type):
 graph_prompt = """
     Based on the user's information, we create a formula that can be drawn on a coordinate plane where the x-axis represents time and the y-axis represents the success index.
     Please include anything that could signify an inflection point in your life. Basically, the formula should be structured in such a way that it increases over time. Please make it a function of degree 3 or higher and include one symbols such as sin, cos, tan, and log.
-    Response format: json format, Provide the result in a format that can be parsed by mathjs for mathematical expressions. and first key -> "equation" and the second key -> "explanation". explanation is korean. Explain what the formula means from the user's perspective. it must not contain complex numbers. create only formula ex) y = 1.5 * log(x + 1) + 0.5 * e**(0.1 * (x - 20)). 자기 자신을 소개 하듯이 작성해야한다. "사용자는" 이라는 시작 말을 사용하면 안된다. "안녕하세요"같은 인사말로 문장을 시작하면 안된다.
+    Response format: json format, Provide the result in a format that can be parsed by mathjs for mathematical expressions. and first key -> "equation" and the second key -> "explanation". explanation is korean. Explain what the formula means from the user's perspective. it must not contain complex numbers. create only formula ex) y = 1.5 * log(x + 1) + 0.5 * e^(0.1 * (x - 20)) , ex) y = 1.3 * e ^ 3. 자기 자신을 소개 하듯이 작성해야한다. "사용자는" 이라는 시작 말을 사용하면 안된다. "안녕하세요"같은 인사말로 문장을 시작하면 안된다.
     you should not use ln in formula.
     """
 
@@ -442,4 +442,3 @@ def generate_geport(encrypted_id: str):
             "answer_5": answer_5,
         }
     return result
-
