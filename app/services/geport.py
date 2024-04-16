@@ -18,6 +18,13 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_community.vectorstores import FAISS
+import logging
+import openai
+import numpy as np
+from faiss import IndexFlatL2
+from langchain.embeddings import HuggingFaceBgeEmbeddings
+
+logging.basicConfig(level=logging.WARNING)
 
 
 env_path = os.path.join(os.path.dirname(__file__), '../../.env')
@@ -28,6 +35,17 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 llm4_json = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY, model_kwargs={"response_format": {'type':"json_object"}}, request_timeout=300)
 llm4 = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY, request_timeout=300)
 
+#embedding 모델 설정
+model_name = 'BAAI/bge-small-en'   #회사/모델명-모델사이즈-언어
+model_kwargs = {'device':'cpu'} #모델 설정 => cpu에서 쓸 수 있는 모델
+encode_kwargs = {'normalize_embeddings':True}
+
+#해당되는 모델을 다운 받는다.
+hf = HuggingFaceBgeEmbeddings(
+        model_name = model_name,
+        model_kwargs = model_kwargs,
+        encode_kwargs = encode_kwargs
+)
 
 def create_encrypted_key(name, phone):
     hasher = hashlib.sha256()
@@ -70,148 +88,6 @@ def read_list_service():
     return users
 
 
-def create_rag_prompt(type):
-    if type == 1:
-        return ChatPromptTemplate.from_messages([HumanMessagePromptTemplate.from_template(
-    """
-    Task Description:
-        You are an assistant who will help you with personal branding based on your blog. An answer to the question is created in Korean with approximately 1,000 characters based on the User Answer and Context. 
-        Content you need to provide: Analyzing based on the input, provide insights into what kind of person the user wants to become. and Add the analyzed context content to the output you provide.
-        Response format: We plan to use the generated sentences as content to express ourselves, so please write from the user's perspective. Don't say thank you at the end of a sentence. Please write from the user's perspective. and You have to use honorifics.
-        Weight considered during analysis: Set the importance at 60% for extracted content from context and 40% for answer to questions.
-
-    Example
-        input:
-            Question: 당신은 어떤 사람이 되고싶나요?
-            User Answer: 나만의 기록 친구, Looi라는 앱을 개발하면서, 많은 사람들이 기록을 통해서 심리적 불안감을 해소하고 있다는 것을 느꼈습니다. 이러한 경험을 통해서 더 많은 사람들이 자신의 감정을 기록하고, 공유하며 내면이 건강해지는 세상을 만들고 싶습니다.
-            Context: 관련 내용들이 담긴 문서
-
-        output:
-            Answer: 저의 스타트업 프로젝트인 Looi 앱을 통해, 많은 분들이 자신의 일상과 감정을 기록함으로써 심리적 안정감을 찾고 계시다는 것을 직접 목격하였습니다. 이러한 경험은 저에게 매우 큰 영감을 주었으며, 이를 통해 더 많은 분들이 자신의 감정을 솔직하게 기록하고, 이를 통해 자기 자신과 타인과의 깊은 연결을 경험할 수 있는 세상을 만드는 것이 저의 큰 소망이 되었습니다. 저는 기술이 단순히 생활을 편리하게 하는 도구를 넘어, 우리 각자의 내면을 들여다보고 성찰할 수 있는 강력한 수단이 될 수 있다고 믿습니다. 이러한 비전을 바탕으로, 저는 앞으로도 사용자들이 자신의 내면을 건강하게 다스리고, 서로의 경험을 공유하며 서로를 이해하는 데 도움을 줄 수 있는 다양한 프로젝트를 개발해 나갈 계획입니다. 이 과정에서 저는 기술과 인간의 감정이 서로 조화롭게 어우러질 수 있는 방법을 모색하며, 사람들이 자신의 감정을 건강하게 표현하고 관리할 수 있는 더 많은 기회를 제공하기 위해 노력할 것입니다.
-
-    prompt         
-        input:
-            Question: 당신은 어떤 사람이 되고싶나요?
-            User Answer: {answer}
-            Context: {context}
-
-        Analyzing based on the input, provide insights into what kind of person the user wants to become. 
-
-     """)])
-
-
-    elif type == 2:
-         return ChatPromptTemplate.from_messages([HumanMessagePromptTemplate.from_template(
-    """
-    Task Description:
-        You are an assistant who will help you with personal branding based on your blog. An answer to the question is created in Korean with approximately 1,000 characters based on the User Answer and Context. 
-        Content you need to provide: Analyzing the context based on the Motto provided by the user.
-        Response format: We plan to use the generated sentences as content to express ourselves, so please write from the user's perspective. Don't say thank you at the end of a sentence. Please write from the user's perspective. and You have to use honorifics.
-
-    Example:
-        input
-            Question: 당신은 좌우명은 무엇인가요? 그 좌우명에 관련된 사례를 하나 알려주세요
-            User Answer: "세상에 안 되는 일은 없다. 안 된다고 생각해서 시도하지 않았기 때문에 안 되는 것일 뿐이다." 라는 좌우명을 가지고 있습니다. 개발을 잘 하지 못했지만 Looi를 개발하면서, 불가능해 보이는 많은 일들을 마주했습니다. 하지만 사용자에게 꼭 필요한 기능이라고 생각하면서 끊임없이 도전했고 그 결과, 성공적으로 서비스를 제작했으며 많은 사용자들이 Looi를 통해 자신의 감정을 기록하고, 공유하며 서로를 이해하는 데 도움을 받고 있습니다.
-            Context: 관련 내용들이 담긴 문서
-
-        output
-            Answer: 세상에 안 되는 일은 없다"는 좌우명을 마음속 깊이 새기고, 저는 Looi 앱 개발이라는 새로운 여정을 시작하였습니다. 초기 개발 과정에서 많은 어려움에 부딪혔음에도 불구하고, 저는 사용자분들에게 꼭 필요한 기능을 제공하고자 하는 일념 하에 끊임없이 노력하였습니다. 그 결과, Looi는 성공적으로 출시되었으며, 많은 분들이 이를 통해 자신의 감정을 기록하고 공유함으로써 서로를 더 잘 이해하게 되었다는 소식을 접하게 되었습니다. 이는 저에게 큰 만족감과 보람을 안겨주었습니다.\n\n이러한 경험을 통해, 저는 도전을 두려워하지 않는 마음가짐의 중요성을 깨달았습니다. 앞으로도 저는 계속해서 새로운 도전에 맞서며, 이를 통해 배우고 성장해 나가고자 합니다. 또한, 저는 더 많은 분들이 자신의 내면을 탐색하고 서로를 이해하는 데 도움이 될 수 있는 방법을 모색할 계획입니다.
-
-    prompt
-        Question: 당신은 좌우명은 무엇인가요? 그 좌우명에 관련된 사례를 하나 알려주세요
-        User Answer: {answer}
-        Context: {context}
-
-        
-        Analyze the context based on the user's mottos and examples thereof.
-
-    """)])
-
-
-graph_prompt = """
-Based on the user's information, we create a formula that can be drawn on a coordinate plane where the x-axis represents time and the y-axis represents the success index.
-Please include anything that could signify an inflection point in your life. Basically, the formula should be structured in such a way that it increases over time. Please make it a function of degree 3 or higher and include one symbols such as sin, cos, tan, and ln.
-Response format: json format, and first key -> "equation" and the second key -> "explanation". explanation is korean. 사용자의 입장에서 수식에 대한 의미를 설명하는 것입니다. The more complex the formula, the better. but, it must not contain complex numbers. create only formula ex) y = 1.5 * ln(x + 1) + 0.5 * e**(0.1 * (x - 20))
-"""
-
-answer2_prompt = """
-Task Description:
-    You are an assistant who will help you with personal branding based on your blog. An answer to the question is created in Korean with approximately 1,000 characters based on the User Answer and Context. 
-    Content you need to provide: Explain the motto and analyze the content based on the motto.
-    Response format: We plan to use the generated sentences as content to express ourselves, so please write from the user's perspective. Don't say thank you at the end of a sentence. Please write from the user's perspective. and You have to use honorifics. 그리고 저의 인생의 좌우명은 ~ 입니다. 로 문장을 시작해.
-
-Example:
-    input
-        Question: 당신은 좌우명은 무엇인가요? 그 좌우명에 관련된 사례를 하나 알려주세요
-        User Answer: "세상에 안 되는 일은 없다. 안 된다고 생각해서 시도하지 않았기 때문에 안 되는 것일 뿐이다." 라는 좌우명을 가지고 있습니다. 개발을 잘 하지 못했지만 Looi를 개발하면서, 불가능해 보이는 많은 일들을 마주했습니다. 하지만 사용자에게 꼭 필요한 기능이라고 생각하면서 끊임없이 도전했고 그 결과, 성공적으로 서비스를 제작했으며 많은 사용자들이 Looi를 통해 자신의 감정을 기록하고, 공유하며 서로를 이해하는 데 도움을 받고 있습니다.
-
-    output
-        세상에 안 되는 일은 없다"는 좌우명을 마음속 깊이 새기고, 저는 Looi 앱 개발이라는 새로운 여정을 시작하였습니다. 초기 개발 과정에서 많은 어려움에 부딪혔음에도 불구하고, 저는 사용자분들에게 꼭 필요한 기능을 제공하고자 하는 일념 하에 끊임없이 노력하였습니다. 그 결과, Looi는 성공적으로 출시되었으며, 많은 분들이 이를 통해 자신의 감정을 기록하고 공유함으로써 서로를 더 잘 이해하게 되었다는 소식을 접하게 되었습니다. 이는 저에게 큰 만족감과 보람을 안겨주었습니다.\n\n이러한 경험을 통해, 저는 도전을 두려워하지 않는 마음가짐의 중요성을 깨달았습니다. 앞으로도 저는 계속해서 새로운 도전에 맞서며, 이를 통해 배우고 성장해 나가고자 합니다. 또한, 저는 더 많은 분들이 자신의 내면을 탐색하고 서로를 이해하는 데 도움이 될 수 있는 방법을 모색할 계획입니다.
-
-prompt:
-    Explain the motto and analyze the content based on the motto , preferences, and strengths.
-    
-    사용자의 좋아하는 것은 {answers[2]}\n사용자가 잘하는 것은 {answers[3]}\n\n{answer_2}.
-"""
-
-answer3_prompt = """
-Task Description:
-    You are an assistant who will help you with personal branding based on your blog. An answer to the question is created in Korean with approximately 1,000 characters based on the User Answer and Context. 
-    Content you need to provide: Describe the turning points in life.
-    Response format: We plan to use the generated sentences as content to express ourselves, so please write from the user's perspective. Don't say thank you at the end of a sentence. Please write from the user's perspective. and You have to use honorifics.
-
-Example:
-    input
-        Question: 인생의 변곡점은 무엇인가요? 힘들었지만 극복했었던 사례를 알려주세요.
-        User Answer: 중학생때 학업에 대한 흥미를 잃었을 때가 가장 힘들었습니다. 어떤 것에도 흥미를 가지기 어려웠어요. 그렇지만 대학교에 들어와서 코딩에 대한 흥미를 찾게 되면서 인생의 방향을 찾을 수 있었습니다.
-
-    output
-        저의 인생의 변곡점은 중학생 때 학업에 대한 흥미를 잃었던 시기입니다. 그 당시에는 어떤 것에도 큰 관심을 가지기 어려웠고, 저 자신도 방향을 잃은 채로 헤매고 있었습니다. 하지만 대학에 진학하여 코딩을 처음 접하게 되면서, 제 인생에 새로운 전환점을 맞이하게 되었습니다.
-        코딩을 통해 저는 문제를 해결하는 과정에서 오는 성취감과 기쁨을 발검할 수 있었고, 점차 학업에 대한 열정을 되찾게 되었습니다. 
-        또한, 코딩은 저에게 끊임없이 새로운 것을 배우고 탐구하며 성장할 수 있는 기회를 제공해주었습니다. 이를 통해 저는 목표를 설정하고, 그 목표를 향해 꾸준히 노력하는 중요성을 깨닫게 되었습니다.
-        \"Make your wave!\"라는 좌우명을 통해 새로운 도전을 두렵지 않게 받아들이고, 끊임없이 발전할 수 있었습니다.
-
-prompt:
-    Describe the turning points in life.
-
-    사용자의 정보는 다음과 같습니다.
-    사용자의 좋아하는 것은 {answers[2]}\n 사용자가 잘하는 것은 {answers[3]}\n\n{answer_2}이다.
-    그리고 사용자의 좌우명과 그에 대한 분석은 다음과 같다. {answer_2}
-
-"""
-#다음 내용을 참고하여 새로 작성해주세요.\n\n{answer_2}\n{answers[4]}
-
-answer5_prompt = """
-Task Description:
-    You are an assistant who will help you with personal branding based on your blog. An answer to the question is created in Korean with approximately 1,000 characters based on the User Answer and Context. 
-    Content you need to provide: Based on the information provided by the user, I will write a brief summary and a message expressing determination, aspirations, and commitment to personal growth.
-    Response format: We plan to use the generated sentences as content to express ourselves, so please write from the user's perspective. Don't say thank you at the end of a sentence. Please write from the user's perspective. and You have to use honorifics.
-
-Example:
-    input: 
-        좌우명 -> make your wave
-        사용자가 되고 싶은 사람 -> 제가 되고 싶은 사람은 주변의 작은 것에서 행복을 찾고, 그 행복을 주변 사람들과 나눌 줄 알고 이런 사소한 순간들에서 행복을 느낄 수 있는 사람이 되고 싶습니다. 또한 자신의 목적을 이루기 위해 최선을 다하고 주변의 시선을 신경쓰기보다 자신만의 속도로 설정한 목표를 이루는 사람입니다.
-        사용자가 좋아하는 것 -> 저는 강아지, 맛있는 음식, 좋아하는 사람들과의 시간, 그리고 설정한 목표를 이루는 것을 좋아합니다. 이런 것들은 저에게 큰 기쁨을 주며, 일상 생활에서의 행복을 찾는 원천이 됩니다. 이런 작은 순간들이 제 삶을 더욱 풍부하고 의미 있게 만들어줍니다.
-        사용자가 잘하는 것 -> 저는 특히 Fast API를 이용한 백엔드 개발에 능숙합니다. 이 분야에서 제가 가진 역량을 발휘할 수 있도록, 끊임없이 새로운 지식을 습득하고, 다양한 프로젝트에 도전합니다. 저는 이를 통해 문제를 해결하고, 사용자에게 가치를 제공하는 서비스를 만드는 것에 큰 만족감을 느낍니다.
-
-    output:
-        제 좌우명 "Make your wave"는 저만의 길을 만들어나가며, 주변의 작은 것에서 큰 행복을 찾고 이를 나누는 삶을 살겠다는 저의 꿈과 목표를 담고 있습니다. 강아지의 순수한 기쁨, 맛있는 음식과의 소중한 순간, 그리고 사랑하는 사람들과 보내는 시간은 저의 일상을 풍요롭게 합니다. 또한, 제가 설정한 목표를 향해 나아가는 과정에서 발견하는 성취감과 만족은 저를 더욱 단단하게 만듭니다.
-        저는 Fast API를 활용한 백엔드 개발 분야에서 끊임없이 성장하고자 합니다. 이 기술을 통해 사용자에게 실질적인 가치를 제공하며, 저의 전문성을 더욱 발전시키고 싶습니다. 새로운 지식을 습득하고 다양한 도전을 하는 과정에서 저는 저만의 파도를 만들어 나가고자 합니다.
-        되고 싶은 사람, 즉 주변의 작은 것에서 행복을 찾고 그 행복을 주변 사람들과 나눌 줄 아는 사람이 되기 위해, 저는 매 순간 최선을 다할 것입니다. 저의 목적을 이루기 위해 주변의 시선보다는 자신만의 속도로 목표를 향해 나아갈 것입니다. 이를 위해 저는 끊임없이 자기계발에 힘쓰며, 저만의 길을 걸어갈 것입니다.
-        저의 삶은 "Make your wave"라는 좌우명 아래에서, 저만의 속도로, 저만의 방식으로 행복을 찾고 나누며, 저만의 파도를 만들어나가는 여정입니다. 저는 이 여정을 통해 제가 진정으로 원하는 삶을 살아가고자 합니다. 앞으로도 저는 저의 열정과 끈기를 바탕으로 더욱 발전하고 성장하는 모습을 보여드리겠습니다.
-        
-
-prompt:
-    한줄 요약과 발전하기 위한 각오, 포부 등을 담은 글을 존댓말로 작성해주세요.
-
-    사용자의 정보는 다음과 같습니다.
-    사용자가 되고싶은 사람 -> {answer_1}
-    좌우명 -> {answer_2}
-    사용자가 좋아하는 것 -> {answers[2]}
-    사용자가 잘하는 것 -> {answers[3]}
-    
-"""
-
 def read_user_blog_links(encrypted_id: str) -> list:
     user = user_baseInfo_collection.find_one({"encrypted_id": encrypted_id}, {'_id': False})
     if user and "blog_links" in user:
@@ -231,10 +107,13 @@ def read_user_questions(encrypted_id: str) -> list:
 
 
 def url_to_text(url):
-    loader = WebBaseLoader(url)
-    # url을 문서호 한다.
-    docs = loader.load()
-    return docs
+    try:
+        loader = WebBaseLoader(url)
+        docs = loader.load()
+        return '\n'.join([doc.page_content for doc in docs]) if docs else ""
+    except Exception as e:
+        logging.error(f"Failed to load or process URL {url}: {str(e)}")
+        return ""
 
 def split_text(docs):
     # 특정 크기로 쪼갠다. 문맥을 위해서 15- 토큰은 overlap 시킨다.
@@ -242,30 +121,68 @@ def split_text(docs):
     splits = text_splitter.split_documents(docs)
     return splits
 
+embeddings_module = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# Function to get embeddings using the HuggingFace model
+def get_huggingface_embeddings(texts):
+    try:
+        valid_texts = [text for text in texts if text.strip()]
+        if not valid_texts:
+            logging.error("No valid texts provided for embedding.")
+            return None
+        
+        # Use the HuggingFace embeddings class to get embeddings for the list of texts
+        embeddings = hf.embed_documents(valid_texts)
+        if not embeddings:
+            logging.error("No embeddings generated: Check if input texts are empty or not processed correctly.")
+            return None
+        
+        # Convert the embeddings to numpy arrays of type float32
+        embeddings_np = np.array(embeddings).astype('float32')
+        return embeddings_np
+    except Exception as e:
+        logging.error(f"Failed to retrieve embeddings: {str(e)}")
+        return None
+
+
+from faiss import IndexFlatL2  # Ensure FAISS is correctly imported
+import numpy as np
+
+# Global list to store text documents
+document_storage = []
 
 def create_vector_store(url_list):
-    flag = False
-    for url in url_list:
-        if not flag:
-            docs = url_to_text(url)
-            flag = True
-        else:
-            docs += url_to_text(url)
+    global document_storage
+    document_storage = []  # Reset or initialize the storage
+    try:
+        # Process each URL and extract text
+        texts = [url_to_text(url) for url in url_list]
+        document_storage.extend(texts)  # Store texts for later retrieval
 
-    splits = split_text(docs)
+        if not texts or all(not text for text in texts):
+            raise ValueError("No text data extracted from URLs.")
 
-    vector_store = FAISS.from_documents(documents=splits, embedding=OpenAIEmbeddings())
-    retriever = vector_store.as_retriever()
-    return retriever
+        # Retrieve embeddings for the extracted texts
+        embeddings_np = get_huggingface_embeddings(texts)
+        if embeddings_np is None:
+            raise ValueError("Failed to retrieve embeddings or embeddings list is empty.")
+
+        # Create a FAISS index and add embeddings
+        dimension = embeddings_np.shape[1]
+        index = IndexFlatL2(dimension)
+        index.add(embeddings_np)
+        
+        return index
+    except Exception as e:
+        logging.error(f"Error in creating vector store: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 def format_docs(docs):
     # 검색한 문서 결과를 하나의 문단으로 합쳐줍니다.
     return "\n\n".join(doc.page_content for doc in docs)
 
 
-# 여기서 return 하는 rag_chain은 이 모든 과정을 하게 해주는것!
-# 그니깐 retriver, prompt 만 입력해서 넣으면 다음고 같은 과정을 수행하는 rag_chain을 얻는다.
-# 그래서 나중에 .invoke()를 사용해서 질문에 대한 답을 얻을 수 있다.
 def create_rag_chain(retriever, prompt):
     rag_chain = (
         {"context": retriever | format_docs, "answer": RunnablePassthrough()}
@@ -276,68 +193,207 @@ def create_rag_chain(retriever, prompt):
     return rag_chain
 
 
+def retrieve_context(retriever, user_answer):
+    try:
+        query_embeddings = get_huggingface_embeddings([user_answer])
+        
+        if query_embeddings is None:
+            raise ValueError("Failed to generate embeddings for the user answer.")
+        
+        query_embeddings_np = np.array(query_embeddings).astype('float32')
+
+        D, I = retriever.search(query_embeddings_np, k=3)  # Search for nearest neighbors
+
+        # Retrieve the documents for each index returned by FAISS
+        context_documents = [document_storage[idx] for idx in I[0]]
+
+        #formatted_context = format_docs(context_documents)
+        return context_documents
+    except Exception as e:
+        logging.error(f"Error in retrieving context: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def create_prompt(type, answer, context):
+    if type == 1: #저는 이런 사람이 되고싶어요
+        return f"""
+        Task Description:
+            You are an assistant who will help you with personal branding based on your blog. An answer to the question is created in Korean with approximately 1,000 characters based on the User Answer and Context. 
+            Content you need to provide: Analyzing based on the input, provide insights into what kind of person the user wants to become. and Add the analyzed context content to the output you provide.
+            Response format: Output in one JSON format. We plan to use the generated sentences as content to express ourselves, so please write from the user's perspective. Don't say thank you at the end of a sentence. Please write from the user's perspective. and You have to use honorifics. And Answer in at least 600 characters and no more than 1000 characters. 그리고 저는 [user answer]가 되고 싶어요. 로 문장을 시작해. "안녕하세요"같은 인사말로 문장을 시작하면 안된다. "사용자"라는 단어를 사용해선 안된다.  "키-값 쌍" 형태가 아닌, 단순히 문자열 데이터를 객체 내의 값으로 사용해야한다.
+            Result language: You should answer in Korean. The utterance should be formatted as if the user is introducing themselves. Honorifics should be used.
+            
+        Example:
+            input(example):
+                Question: What kind of person do you want to become?
+                User Answer: I want to become a person who is passionate and excels in the field of AI, particularly in machine learning.
+                context: [User-created blog content]
+            result(example):
+                {{"제가 되고자 하는 사람은 뛰어난 컴퓨터 비전 개발자입니다. 저는 혁신적인 기술을 통해 완전 자율주행 자동차의 개발을 가능하게 하고 싶습니다. 이를 위해 현재 딥러닝과 컴퓨터 비전 분야에 깊이 몰두하고 있으며, 특히 퍼셉트론과 신경망의 이해를 바탕으로 복잡한 비선형 문제를 해결할 수 있는 능력을 쌓고 있습니다.\n\n퍼셉트론의 기본 개념에서 시작하여 다중 퍼셉트론과 신경망 구조까지 학습하며, 입력과 출력 사이에서 중요한 가중치와 편향의 조정을 이해하고 있습니다. 활성화 함수와 같은 신경망의 세부 요소까지 심층적으로 파악하면서, 더 복잡한 구조들을 설계하고 최적화하는 방법을 연구하고 있습니다.\n\n또한, 현대적인 딥러닝 아키텍처에서는 과적합을 방지하고 일반화 성능을 향상시키기 위해 배치 정규화와 같은 기법을 적극 활용하고 있습니다. 최신의 활성화 함수와 가중치 초기화 방법 등을 실험하며, 이론과 실제의 균형을 맞추려 노력 중입니다.\n\n이러한 기술적 능력을 바탕으로 테슬라와 같은 선도적인 기업에서 시도하고 있는 자율주행 자동차 기술에 기여하고, 나아가 새로운 차원의 자동차 기술을 개발하는 것이 저의 궁극적인 목표입니다. 자율주행 분야에서 기술적 한계를 넘어서는 새로운 가능성을 열어가고 싶습니다. 이를 위해 저는 계속해서 학습하고, 도전하며, 혁신을 추구할 것입니다. 이 과정에서 제 블로그는 제가 배우고 발전해 나가는 여정을 담은 핵심적인 수단이 될 것입니다."}}
+        
+        Prompt:
+            Question: What kind of person do you want to become?
+            User Answer: {answer}
+            Context: {context}
+
+            Task: Analyzing based on the input, provide insights into what kind of person the user wants to become. 자기 자신을 소개 하듯이 작성해야한다. "사용자는" 이라는 시작 말을 사용하면 안된다.  "키-값 쌍" 형태가 아닌, 단순히 문자열 데이터를 객체 내의 값으로 사용해야한다.
+        """
+    elif type == 2: #저의 좌우명
+        return f"""
+        Task Description:
+            You are an assistant who will help you with personal branding based on your blog. An answer to the question is created in Korean with approximately 1,000 characters based on the User Answer and Context. 
+            Content you need to provide: Analyzing the context based on the Motto provided by the user.
+            Response format: Output in one JSON format. We plan to use the generated sentences as content to express ourselves, so please write from the user's perspective. Don't say thank you at the end of a sentence. Please write from the user's perspective. and You have to use honorifics. And Answer in at least 600 characters and no more than 1000 characters. "안녕하세요"같은 인사말로 문장을 시작하면 안된다. "사용자"라는 단어를 사용해선 안된다.  "키-값 쌍" 형태가 아닌, 단순히 문자열 데이터를 객체 내의 값으로 사용해야한다.
+            Result language: You should answer in Korean. The utterance should be formatted as if the user is introducing themselves. Honorifics should be used.
+
+        Example:
+            input(example):
+                Question: What is your motto? Could you give me an example related to that motto?
+                User Answer: "Perseverance conquers all obstacles." I adopted this motto when I faced a challenging project at work and, despite the difficulties, managed to successfully complete it through determination and persistence.
+                context: [User-created blog content]
+            
+            result(example): 
+                {{"제 좌우명인 '안되면 되게하라'는 난관에 직면할 때마다 저를 이끄는 힘의 원천입니다. 이 표현은 모든 문제에는 해결책이 있으며, 문제가 해결되지 않는다면 그것은 아직 적절한 해결책을 찾지 못했기 때문이라는 믿음을 내포하고 있습니다. 이는 저의 학습과 개발 과정에서 깊이 반영되어 있으며, 특히 책을 읽으면서나 새로운 프로그래밍 기술을 배우면서 매우 중요한 역할을 합니다.\n\n독서를 통해 저는 다양한 사상과 이론을 접하며 비판적인 사고를 계발합니다. 이러한 과정 속에서 저는 때로는 난해하고 해결하기 어려운 개념들을 마주칩니다. 하지만, 제 좌우명이 있기에 저는 이러한 어려움을 극복하고 학문적 통찰을 얻을 수 있는 방법을 찾아내곤 합니다. 그리고 이는 제가 더 나은 아이디어를 갈구하고 자신감을 가지고 새로운 도전에 임할 수 있도록 돕습니다.\n\n개발 분야에서도, 특히 머신러닝과 컴퓨터 비전 같은 첨단 기술을 배울 때, 처음에는 기술적인 어려움과 복잡한 개념에 부딪히는 경우가 많습니다. 예로, cs231n 강의를 들으며 심화된 내용을 학습할 때, 데이터의 고차원 처리나 모델의 성능 최적화 같은 문제들은 처음에 큰 벽처럼 느껴졌습니다. 그런데 '안되면 되게하라'는 좌우명을 떠올리며, 저는 다양한 시도를 거쳐 성공적으로 문제를 해결해 나갔습니다.\n\n이렇게 저는 독서와 학습, 개발 과정에서 발생하는 문제들을 좌우명을 통해 해결해 나가며, 이를 바탕으로 저의 비판적인 시선을 더욱 날카롭게 다듬고 창의적인 아이디어를 추구하는 실력을 키워가고 있습니다. 저의 좌우명은 단순한 구호가 아니라, 실제로 어려움을 극복하고 성장하는 데 있어 저를 지속적으로 밀어주는 원동력입니다. 이를 통해 저는 계속해서 새로운 지식을 받아들이고, 이를 실제 상황에 적용해보며 발전해 나가고자 합니다."}}
+
+        Prompt:
+            Question: What is your motto? Could you give me an example related to that motto?
+            User Answer: {answer}
+            Context: {context}
+
+            Task: Analyze the context based on the user's mottos and examples thereof. 자기 자신을 소개 하듯이 작성해야한다. "사용자는" 이라는 시작 말을 사용하면 안된다.  "키-값 쌍" 형태가 아닌, 단순히 문자열 데이터를 객체 내의 값으로 사용해야한다.
+        """
+
+def generate_answer2_prompt(answers, answer_2): #저의 좌우명
+    return f"""
+    Task Description:
+        You are an assistant who will help you with personal branding based on your blog. An answer to the question is created in Korean with approximately 1,000 characters based on the User Answer and Context. 
+        Content you need to provide: Explain the motto and analyze the content based on the motto.
+        Response format: Output in one JSON format. We plan to use the generated sentences as content to express ourselves, so please write from the user's perspective. Don't say thank you at the end of a sentence. Please write from the user's perspective. and You have to use honorifics. 그리고 저의 인생의 좌우명은 ~ 입니다. 로 문장을 시작해. And Answer in at least 600 characters and no more than 1000 characters. "안녕하세요"같은 인사말로 문장을 시작하면 안된다. "사용자"라는 단어를 사용해선 안된다. "키-값 쌍" 형태가 아닌, 단순히 문자열 데이터를 객체 내의 값으로 사용해야한다.
+        Result language: You should answer in Korean. The utterance should be formatted as if the user is introducing themselves. Honorifics should be used.
+
+    Example:
+        input(example):
+            Question: What is your motto? Could you give me an example related to that motto?
+            User Answer: My motto is "There is nothing in the world that cannot be done. It's only considered impossible because we haven't tried it." Although I wasn't good at development, I faced many challenges that seemed impossible while developing Looi. However, believing them to be essential features for users, I continuously challenged myself. As a result, we successfully developed the service, and many users now use Looi to record, share their emotions, and help each other understand better.
+            preference: I have a deep appreciation for collaborative environments where I can share ideas and work together with a team towards a common goal. I find this approach energizes me and brings out my best work.
+            strengths: My key strength is my ability to quickly learn new technologies and apply them to practical problems. I'm known among my peers for my critical thinking and problem-solving skills, particularly when it comes to innovative tech solutions.
+
+        result(example):
+            {{"제 좌우명인 '안되면 되게하라'는 난관에 직면할 때마다 저를 이끄는 힘의 원천입니다. 이 표현은 모든 문제에는 해결책이 있으며, 문제가 해결되지 않는다면 그것은 아직 적절한 해결책을 찾지 못했기 때문이라는 믿음을 내포하고 있습니다. 이는 저의 학습과 개발 과정에서 깊이 반영되어 있으며, 특히 책을 읽으면서나 새로운 프로그래밍 기술을 배우면서 매우 중요한 역할을 합니다.\n\n독서를 통해 저는 다양한 사상과 이론을 접하며 비판적인 사고를 계발합니다. 이러한 과정 속에서 저는 때로는 난해하고 해결하기 어려운 개념들을 마주칩니다. 하지만, 제 좌우명이 있기에 저는 이러한 어려움을 극복하고 학문적 통찰을 얻을 수 있는 방법을 찾아내곤 합니다. 그리고 이는 제가 더 나은 아이디어를 갈구하고 자신감을 가지고 새로운 도전에 임할 수 있도록 돕습니다.\n\n개발 분야에서도, 특히 머신러닝과 컴퓨터 비전 같은 첨단 기술을 배울 때, 처음에는 기술적인 어려움과 복잡한 개념에 부딪히는 경우가 많습니다. 예로, cs231n 강의를 들으며 심화된 내용을 학습할 때, 데이터의 고차원 처리나 모델의 성능 최적화 같은 문제들은 처음에 큰 벽처럼 느껴졌습니다. 그런데 '안되면 되게하라'는 좌우명을 떠올리며, 저는 다양한 시도를 거쳐 성공적으로 문제를 해결해 나갔습니다.\n\n이렇게 저는 독서와 학습, 개발 과정에서 발생하는 문제들을 좌우명을 통해 해결해 나가며, 이를 바탕으로 저의 비판적인 시선을 더욱 날카롭게 다듬고 창의적인 아이디어를 추구하는 실력을 키워가고 있습니다. 저의 좌우명은 단순한 구호가 아니라, 실제로 어려움을 극복하고 성장하는 데 있어 저를 지속적으로 밀어주는 원동력입니다. 이를 통해 저는 계속해서 새로운 지식을 받아들이고, 이를 실제 상황에 적용해보며 발전해 나가고자 합니다."}}
+            
+
+    prompt:
+        Question: What is your motto? Could you give me an example related to that motto?
+        User Answer: {answer_2}
+        preferences: {answers[2]}
+        strengths: {answers[3]}
+
+        Task: Explain the motto and analyze the content based on the user answer, preferences, and strengths. "사용자는"이라는 말을 사용해선 안되고, 자기 자신을 소개하듯이 작성해야한다. "키-값 쌍" 형태가 아닌, 단순히 문자열 데이터를 객체 내의 값으로 사용해야한다.
+    """
+
+def generate_answer3_prompt(answers, answer_2): #제 인생 변곡점은 이겁니다.
+    return f"""
+    Task Description:
+        You are an assistant who will help you with personal branding based on your blog. An answer to the question is created in Korean with approximately 1,000 characters based on the User Answer and Context. 
+        Content you need to provide: Describe the turning points in life.
+        Response format: Output in one JSON format. We plan to use the generated sentences as content to express ourselves, so please write from the user's perspective. Don't say thank you at the end of a sentence. Please write from the user's perspective. and You have to use honorifics. And Answer in at least 600 characters and no more than 1000 characters. "안녕하세요"같은 인사말로 문장을 시작하면 안된다. "사용자"라는 단어를 사용해선 안된다. "키-값 쌍" 형태가 아닌, 단순히 문자열 데이터를 객체 내의 값으로 사용해야한다.
+        Result language: You should answer in Korean. The utterance should be formatted as if the user is introducing themselves. Honorifics should be used.
+
+    Example:
+        input(example):
+            Question: What are the turning points in your life? Please tell me about a case where you overcame difficulties.
+            User Answer: The most challenging moment in my life was when I lost interest in academics during middle school. I found it difficult to be interested in anything. However, when I entered university and discovered an interest in coding, I was able to find direction in my life.
+            preference: I have a deep appreciation for collaborative environments where I can share ideas and work together with a team towards a common goal. I find this approach energizes me and brings out my best work.
+            strengths: My key strength is my ability to quickly learn new technologies and apply them to practical problems. I'm known among my peers for my critical thinking and problem-solving skills, particularly when it comes to innovative tech solutions.
+
+        result(example): 
+            {{"제 인생에서 가장 큰 변곡점은 머신러닝과 컴퓨터 비전을 공부하기 시작한 때입니다. 특히, cs231n 강의를 수강하면서 심층 신경망과 이미지 분류에 대해 깊이 있게 탐구할 기회를 가졌고, 이는 저의 학문적 방향과 진로에 큰 영향을 미쳤습니다.\n\n당시 저는 고차원 데이터를 효과적으로 처리하고, 학습 모델의 성능을 최적화하는 데 어려움을 겪었습니다. 많은 시행착오를 겪으며 때로는 원하는 결과를 얻지 못할 때도 많았습니다. 그러나 저의 좌우명인 '안되면 되게하라'가 저에게 큰 힘이 되었습니다. 이 좌우명은 제게 어떤 문제든 해결할 수 있다는 자신감을 주었고, 새로운 도전에 맞설 용기를 주었습니다. 저는 다양한 데이터 전처리 기법을 적용해 보며 성능 향상을 꾀했고, 가중치 초기화와 활성화 함수 선택에서도 수많은 실험을 통해 최적의 조합을 찾는 데 집중했습니다. 또한, 과적합을 방지하기 위해 배치 정규화와 드롭아웃과 같은 기법도 도입했습니다.\n\n이런 끊임없는 시도와 노력의 결과, 점차 문제를 해결해 나가면서 모델의 정확도를 상당히 향상시킬 수 있었습니다. 이 과정에서 비판적으로 문제를 바라보고, 새로운 아이디어를 갈구하는 제 능력이 큰 도움이 되었습니다. 또한, 독서를 통해 획득한 지식이 이론적 이해를 넓히는 데 중요한 역할을 했습니다.이러한 경험은 저를 개발자로서, 그리고 학습자로서 끊임없이 성장할 수 있는 원동력을 제공했으며, '안되면 되게하라'는 좌우명은 저에게 실질적인 도전과 성취를 이어가는 데 있어서 중요한 원칙이 되었습니다. 이제 저는 어떠한 어려운 기술적 문제에도 도전하는 것을 주저하지 않고, 계속해서 새로운 지식을 탐구하며 나아가고 있습니다"}}
+
+    prompt:
+        preferences: {answers[2]} 
+        strengths: {answers[3]}
+        The analysis of the motto: {answer_2}
+        Turning point in life: {answers[4]}
+
+        Task: explain the turning point of the user's life based on the contents of preferences, strengths, and The analysis of the motto. 자기 자신을 소개 하듯이 작성해야한다. "사용자는"이라는 말을 사용해선 안되고, 자기 자신을 소개하듯이 작성해야한다.  "키-값 쌍" 형태가 아닌, 단순히 문자열 데이터를 객체 내의 값으로 사용해야한다.
+    """
+
+graph_prompt = """
+    Based on the user's information, we create a formula that can be drawn on a coordinate plane where the x-axis represents time and the y-axis represents the success index.
+    Please include anything that could signify an inflection point in your life. Basically, the formula should be structured in such a way that it increases over time. Please make it a function of degree 3 or higher and include one symbols such as sin, cos, tan, and ln.
+    Response format: json format, Provide the result in a format that can be parsed by mathjs for mathematical expressions. and first key -> "equation" and the second key -> "explanation". explanation is korean. Explain what the formula means from the user's perspective. it must not contain complex numbers. create only formula ex) y = 1.5 * ln(x + 1) + 0.5 * e**(0.1 * (x - 20)). 자기 자신을 소개 하듯이 작성해야한다. "사용자는" 이라는 시작 말을 사용하면 안된다. "안녕하세요"같은 인사말로 문장을 시작하면 안된다.
+    """
+
+
+def generate_answer5_prompt(answers, answer_1, answer_2): #지포트 솔루션
+    return f"""
+    Task Description:
+        You are an assistant who will help you with personal branding based on your blog. An answer to the question is created in Korean with approximately 1,000 characters based on the User Answer and Context. 
+        Content you need to provide: Based on the information provided by the user, I will write a brief summary and a message expressing determination, aspirations, and commitment to personal growth.
+        Response format: Output in one JSON format. We plan to use the generated sentences as content to express ourselves, so please write from the user's perspective. Don't say thank you at the end of a sentence. Please write from the user's perspective. and You have to use honorifics. And Answer in at least 600 characters and no more than 1000 characters. "안녕하세요"같은 인사말로 문장을 시작하면 안된다. "사용자"라는 단어를 사용해선 안된다.  "키-값 쌍" 형태가 아닌, 단순히 문자열 데이터를 객체 내의 값으로 사용해야한다.
+        Result language: You should answer in Korean. The utterance should be formatted as if the user is introducing themselves. Honorifics should be used.
+
+    Example:
+        input(example): 
+            motto: make your wave
+            Who Wants to Be a User : The person I want to be wants to be a person who finds happiness in small things around him, knows how to share that happiness with the people around him, and can feel happiness in these small moments. Also, I am a person who does my best to achieve my purpose and achieves a goal that I set at my own pace rather than caring about my eyes.
+            preference : I love dogs, delicious food, time with the people I like, and achieving my set goals. These things give me great joy and are the source of everyday happiness. These little moments make my life richer and more meaningful.
+            strengths : I am especially good at backend development using Fast API. I constantly acquire new knowledge and challenge various projects so that I can demonstrate my capabilities in this field. I feel very satisfied with solving problems and creating services that provide value to users.
+
+        result(example):
+            {{"저의 좌우명 '안되면 되게하라'는 제게 있어 모든 난관을 극복하고 목표를 향해 나아갈 수 있는 결정적인 힘을 제공합니다. 이 좌우명은 저에게 문제 해결의 중요성과 함께, 어떠한 상황에서도 포기하지 않는 태도를 갖게 해줍니다. 이것은 제가 컴퓨터 비전 개발자로서 자율주행 자동차의 혁신을 이끌어가고자 하는 큰 포부와도 맞닿아 있습니다. 제가 되고자 하는 사람은 뛰어난 기술과 창의적인 사고를 겸비한 컴퓨터 비전 개발자입니다. 저는 현재 딥러닝과 컴퓨터 비전 분야에서 중요한 기술인 퍼셉트론과 신경망에 대한 깊은 이해를 바탕으로, 복잡한 비선형 문제를 해결할 수 있는 능력을 키우고 있습니다. 이와 같은 전문 지식을 활용하여 완전 자율주행 자동차 개발에 기여하고, 테슬라와 같은 선도적인 기업들과 어깨를 나란히 하고자 합니다. 저는 끊임없이 새로운 지식을 습득하고, 이론과 실습을 병행하며 실제 상황에서의 적용 가능성을 탐구합니다. 이 과정에서 독서는 제게 새로운 사상과 이론을 접할 기회를 제공하고, 비판적 사고를 발전시키는 중요한 도구가 됩니다. 저는 독서를 통해 얻은 지식을 바탕으로, 학습과 개발 과정에서 발생하는 여러 문제들을 해결해 나가고 있습니다. 이러한 학습과 연구, 개발에 대한 열정을 바탕으로, 저는 계속해서 자율주행 분야에서의 기술적 한계를 넘어 새로운 가능성을 찾아 나설 것입니다. 제 블로그를 통해 이러한 여정을 공유하면서, 저와 같은 꿈을 가진 이들에게 영감을 주고, 함께 성장하는 커뮤니티를 만들어 갈 계획입니다. 저는 앞으로도 학문적 통찰과 실용적 해결책 사이의 균형을 이루며, 혁신적인 기술 개발을 위해 끊임없이 도전할 것입니다. '안되면 되게하라'는 저의 좌우명처럼, 저는 결코 어려움에 굴복하지 않고 새로운 길을 개척해 나가겠습니다."}}
+    prompt:
+        The user's information:
+        Who Wants to Be a User : {answer_1}
+        The analysis of the motto: {answer_2}
+        preference: {answers[2]}
+        strengths: {answers[3]}
+
+        Task: 주어진 사용자 정보를 바탕으로 요약을 만들고, 사용자의 열망과 삶에 대한 해결책에 대해 작성해라. 이때 자기 자신을 소개 하듯이 작성해야한다."사용자는"라는 단어를 사용해선 안되고, 자기 자신을 소개하듯이 작성해야한다. "키-값 쌍" 형태가 아닌, 단순히 문자열 데이터를 객체 내의 값으로 사용해야한다."안녕하세요"같은 인사말로 문장을 시작하면 안된다.
+    """
+
+def generate_response(llm, prompt):
+    response = llm.predict(prompt)
+    return response
+
 # 질문은 front에서 받아와야 하는 상황이다.
 def generate_geport(encrypted_id: str):
     url_list = read_user_blog_links(encrypted_id)
-    # url_list의 문서들을 가져와 문자로 바꾸고
-    # 해당 문자를 분할해서 특정 조각으로 쪼개고
-    # 그 쪼갠 조각들을 embedding 하여 vector_store에저장하고
-    # vectore_store.as_retriver()를 사용하여 겁색가능 한 retriver를 만들었다.
-    # 즉, url_list들을 벡터디비에 넣고 해당 디비에서 검색 기능을 구현하는 retriever를 만든것이다.
     retriever = create_vector_store(url_list)
-
     answers = read_user_questions(encrypted_id)
 
+    context1 = retrieve_context(retriever, answers[0])
+    context2 = retrieve_context(retriever, answers[1])
 
-    # 2. RAG chain 생성 (1), (2)
-    # retreiver 즉, 블로그 내용들을 검색하는데, prompo에 맞게 검색을 하는 rag_chain을 생성한다.
-    # 그래서 총 2개에 대해서 각각 블로그와 prompt를 활용한다.
-    rag_chain_1 = create_rag_chain(retriever, create_rag_prompt(1))
-    rag_chain_2 = create_rag_chain(retriever, create_rag_prompt(2))
+    prompt1 = create_prompt(1, answers[0], context1)
+    prompt2 = create_prompt(2, answers[1], context2)
 
-    # 3. RAG chain 실행 Q1 -> (1), Q2 -> (2)
-    # anwer를 사용해 검색을 한다.
-    answer_1 = rag_chain_1.invoke(answers[0])
-    answer_2 = rag_chain_2.invoke(answers[1])
+    answer_1 = generate_response(llm4, prompt1)
+    answer_2 = generate_response(llm4, prompt2)
 
-    # 4. Q3, Q4, (2)를 활용하여 (2)를 다시 생성
-    answer_2 = llm4.predict(answer2_prompt)
+    # 질문 3과 4에 대한 답변 생성을 위해 프롬프트 업데이트 및 응답 생성
+    updated_answer2_prompt = generate_answer2_prompt(answers, answer_2)
+    updated_answer3_prompt = generate_answer3_prompt(answers, answer_2)
 
-    # 5. Q5를 활용하여 (3)을 생성
-    answer_3 = llm4.predict(answer3_prompt)
+    answer_2 = llm4.predict(updated_answer2_prompt)
+    answer_3 = llm4.predict(updated_answer3_prompt)
 
-    # 6. (1), (3)을 활용하여 (4)를 생성
-    answer_4 = llm4_json.predict(f"json {graph_prompt}\n{answer_1}\n{answer_3}")
+    # 6. 질문 1과 3의 결과를 기반으로 추가적인 응답 생성
+    json_input_for_answer4 = f"json {graph_prompt}\n{answer_1}\n{answer_3}"
+    answer_4 = llm4_json.predict(json_input_for_answer4)
+
+    updated_answer5_prompt = generate_answer5_prompt(answers, answer_1, answer_2)
 
     # 7. (2), (4)를 활용하여 (5)를 생성
-    answer_5 = llm4.predict(f"Don't say thank you at the end of a sentence. Please write from the user's perspective. 한줄 요약과 발전하기 위한 각오, 포부 등을 담은 글을 존댓말로 작성해주세요.(1000자)\n\n사용자의 정보는 다음과 같습니다.\n\n{answer_1}\n\n{answer_2}\n\n{json.loads(answer_4)['explanation']}")
+    answer_5 = llm4.predict(updated_answer5_prompt)
     
-    result= {
-            "result": {
-                "저는 이런 사람이 되고싶어요": answer_1,
-                "저의 좌우명은 다음과 같습니다 ": answer_2,
-                "제 인생의 변곡점은 다음과 같아요": answer_3,
-                "이것이 재 인생 함수입니다": answer_4,
-                "Geport Solution": answer_5,
-            }
+     # 최종 결과 리턴
+    result = {
+            "answer_1": answer_1,
+            "answer_2": answer_2,
+            "answer_3": answer_3,
+            "answer_4": answer_4,
+            "answer_5": answer_5,
         }
     return result
-    ## 데이터 베이스 저장
-    # try:
-    #     # 해당 encrypted_key를 가진 문서를 찾아, geport 필드를 빈 배열로 설정합니다.
-    #     update_result = user_baseInfo_collection.update_one(
-    #         {"_id": encrypted_id},
-    #         {"$set": {"geport": result}}
-    #     )
-
-    #     # 문서 업데이트가 성공적으로 이루어졌는지 확인합니다.
-    #     if update_result.modified_count == 0:
-    #         # 아무 문서도 업데이트되지 않았다면, 문서가 없는 것일 수 있습니다.
-    #         return {"message": "No document found with the given encrypted_key, or the geport field is already set to an empty array."}
-    #     else:
-    #         # 문서 업데이트 성공
-    #         return {"message": "The geport field has been successfully added or updated to an empty array."}
-    # except Exception as e:
-    #     # 에러 처리
-    #     raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
