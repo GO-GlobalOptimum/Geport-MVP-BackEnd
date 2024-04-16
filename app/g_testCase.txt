@@ -85,8 +85,8 @@
     "https://velog.io/@pich7755/git-%EC%82%AC%EC%9A%A9%EA%B8%B0",
     "https://velog.io/@pich7755/REST-API-%EC%99%80-Fast-API",
     "https://velog.io/@pich7755/javaScript%EC%99%80-react-%EA%B7%B8%EB%A6%AC%EA%B3%A0-Node.js",
-    "https://velog.io/@pich7755/Docker",
-    "https://velog.io/@pich7755/%EC%97%94%EC%A7%84%EC%97%91%EC%8A%A4-%EC%88%98%EC%A0%95"
+    "https://velog.io/@pich7755/git-%EC%B6%A9%EB%8F%8C-%ED%8C%8C%EC%9D%BC%EC%9D%B4-%EB%84%88%EB%AC%B4-%EB%A7%8E%EC%95%84%EC%84%9C-%EB%A0%88%ED%8F%AC-%EC%83%88%EB%A1%9C-%ED%8C%8C%EA%B8%B0",
+    "https://velog.io/@pich7755/%ED%94%84%EB%A1%AC%ED%94%84%ED%8A%B8-%EC%97%94%EC%A7%80%EB%8B%88%EC%96%B4%EB%A7%81"
   ],
   "questions": [
     "나 자신을 사랑하는 사람, 주변의 사소한 행복을 느낄 수 있는 사람",
