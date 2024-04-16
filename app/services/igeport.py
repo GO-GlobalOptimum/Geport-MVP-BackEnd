@@ -291,6 +291,7 @@ def create_prompt(type):
         You are a wise psychologist who analyzes personality based on given inputs and provides the analysis in JSON format.
         Your response should include a JSON object with keys as the personality traits (openness, sincerity, extroversion, friendliness, neuroticism), each having a percentage score and a descriptive explanation.
         Ensure the answer is formatted strictly in JSON.
+        The description must be Korean
         """
     ),
     HumanMessagePromptTemplate.from_template(
@@ -304,23 +305,23 @@ def create_prompt(type):
         {{
             "openness": {{
                 "score": 60,
-                "description": "The user's openness is evidenced by their curiosity about new experiences described in the blog."
+                "description": "사용자의 개방성은 블로그에서 설명된 새로운 경험에 대한 호기심에서 드러납니다."
             }},
             "sincerity": {{
                 "score": 55,
-                "description": "Sincerity is reflected in the user's detailed and honest narration of events."
+                "description": "성실함은 이벤트의 자세하고 정직한 서술에서 반영됩니다."
             }},
             "extroversion": {{
                 "score": 41,
-                "description": "Extroversion is moderate as shown by the user's engagement with friends and activities."
+                "description": "외향성은 사용자가 친구들과 활동에 참여하는 것으로 보통 수준입니다."
             }},
             "friendliness": {{
                 "score": 32,
-                "description": "The user shows some friendliness, especially in interactions with others mentioned in the blog."
+                "description": "사용자는 블로그에서 언급된 다른 사람들과의 상호작용에서 어느 정도 친근함을 보입니다."
             }},
             "neuroticism": {{
                 "score": 60,
-                "description": "The user exhibits higher levels of neuroticism, possibly due to stressors mentioned in the blog."
+                "description": "사용자는 블로그에서 언급된 스트레스 요인으로 인해 더 높은 수준의 신경증을 보일 수 있습니다."
             }},
         }}
 
