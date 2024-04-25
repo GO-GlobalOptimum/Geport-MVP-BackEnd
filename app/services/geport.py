@@ -387,9 +387,12 @@ graph_prompt = """
     you should not use ln in formula.
     """
 
+import time
 
 # 질문은 front에서 받아와야 하는 상황이다.
 def generate_geport(encrypted_id: str):
+    start_time = time.time()  # 함수 실행 시작 시간을 기록
+
     url_list = read_user_blog_links(encrypted_id)
     retriever = create_vector_store(url_list)
     answers = read_user_questions(encrypted_id)
@@ -433,6 +436,12 @@ def generate_geport(encrypted_id: str):
     answer_5 = llm35.invoke(updated_answer5_prompt)
     answer_5 = answer_5.content
     answer_5 = re.sub(r'[\n\t]+', ' ', answer_5)
+
+    end_time = time.time()  # 함수 실행 완료 시간을 기록
+    execution_time = end_time - start_time  # 실행 시간을 계산
+
+
+
      # 최종 결과 리턴
     result = {
             "answer_1": answer_1,
@@ -440,5 +449,8 @@ def generate_geport(encrypted_id: str):
             "answer_3": answer_3,
             "answer_4": answer_4,
             "answer_5": answer_5,
+            'time' : execution_time
         }
+    
+
     return result

@@ -1,8 +1,9 @@
 # geport.py
 from fastapi import APIRouter, HTTPException, status, Body
 from app.database.models import UserData, UserQuestions
-from app.services.geport import create_user_service, read_user_service, read_list_service, generate_geport
-
+from app.services.geport import create_user_service, read_user_service, read_list_service,generate_geport
+from app.services.clova import  generate_geport as abc
+import os
 
 router = APIRouter()
 
@@ -22,7 +23,14 @@ def read_list():
     return read_list_service()
 
 
-@router.get("/geport/generate-test/{encrypted_id}") #실제 지포트 생성
+@router.get("/geport/generate-CLOVA-test/{encrypted_id}") #실제 지포트 생성
+def generate_geport_endpoint(encrypted_id:str):
+    # service.py의 generate_geport 함수 호출
+    result = abc(encrypted_id)
+    return result
+
+
+@router.get("/geport/generate-GPT4-test/{encrypted_id}") #실제 지포트 생성
 def generate_geport_endpoint(encrypted_id:str):
     # service.py의 generate_geport 함수 호출
     result = generate_geport(encrypted_id)
