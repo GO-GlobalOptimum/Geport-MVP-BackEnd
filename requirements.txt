@@ -8,9 +8,8 @@ langchain
 langchain_community
 langchain_openai
 python-dotenv
-bs4
+beautifulsoup4  # bs4는 beautifulsoup4의 별칭으로, 여기서는 하나만 남기고 제거
 faiss-cpu
-beautifulsoup4 
 requests
 httpx
 sentence_transformers
