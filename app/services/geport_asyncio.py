@@ -25,7 +25,11 @@ import numpy as np
 from faiss import IndexFlatL2
 from langchain.embeddings import HuggingFaceBgeEmbeddings
 import re
+import asyncio
+import time
 
+start_time = None
+end_time = None
 logging.basicConfig(level=logging.WARNING)
 
 
@@ -35,6 +39,7 @@ load_dotenv(dotenv_path=env_path)
 # LLM 설정
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 llm35 = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY, model_kwargs={"response_format": {'type':"json_object"}}, request_timeout=300)
+
 
 
 #embedding 모델 설정
@@ -84,31 +89,32 @@ def read_user_service(encrypted_id: str):
     else:
         raise HTTPException(status_code=404, detail="User not found")
     
-
-def read_list_service():
-    users = list(user_baseInfo_collection.find({}, {'_id': False}))
+async def read_list_service():
+    users = []
+    async for user in user_baseInfo_collection.find({}, {'_id': False}):
+        users.append(user)
     return users
 
 
-def read_user_blog_links(encrypted_id: str) -> list:
-    user = user_baseInfo_collection.find_one({"encrypted_id": encrypted_id}, {'_id': False})
+def read_user_blog_links(encrypted_id: str):
+    user =  user_baseInfo_collection.find_one({"encrypted_id": encrypted_id}, {'_id': False})
     if user and "blog_links" in user:
         return user["blog_links"]
     else:
         raise HTTPException(status_code=404, detail="User or blog links not found")
-    
+
 
     
 def read_user_questions(encrypted_id: str) -> list:
-    user = user_baseInfo_collection.find_one({"encrypted_id": encrypted_id}, {'_id': False})
+    # `await`를 사용하여 비동기적으로 데이터 조회
+    user =  user_baseInfo_collection.find_one({"encrypted_id": encrypted_id}, {'_id': False})
     if user and "questions" in user:
         return user["questions"]
     else:
         raise HTTPException(status_code=404, detail="User or questions not found")
-    
 
 
-def url_to_text(url):
+async def url_to_text(url):
     try:
         loader = WebBaseLoader(url)
         docs = loader.load()
@@ -150,15 +156,28 @@ def get_huggingface_embeddings(texts):
 from faiss import IndexFlatL2  # Ensure FAISS is correctly imported
 import numpy as np
 
-# Global list to store text documents
-document_storage = []
 
-def create_vector_store(url_list):
+async def create_vector_store(url_list):
+    start_time = time.time()
     global document_storage
     document_storage = []  # Reset or initialize the storage
     try:
         # Process each URL and extract text
-        texts = [url_to_text(url) for url in url_list]
+        text1, text2, text3, text4, text5= await asyncio.gather(
+            url_to_text(url_list[0]),
+            url_to_text(url_list[1]),
+            url_to_text(url_list[2]),
+            url_to_text(url_list[3]),
+            url_to_text(url_list[4]),
+        )
+        texts = []
+        texts.append(text1)
+        texts.append(text2)
+        texts.append(text3)
+        texts.append(text4)
+        texts.append(text5)
+
+
         document_storage.extend(texts)  # Store texts for later retrieval
 
         if not texts or all(not text for text in texts):
@@ -173,7 +192,9 @@ def create_vector_store(url_list):
         dimension = embeddings_np.shape[1]
         index = IndexFlatL2(dimension)
         index.add(embeddings_np)
-        
+        end_time = time.time()
+
+        print('retreiver generate time : ', end_time - start_time)
         return index
     except Exception as e:
         logging.error(f"Error in creating vector store: {str(e)}")
@@ -196,7 +217,10 @@ def create_rag_chain(retriever, prompt):
 
 
 def retrieve_context(retriever, user_answer):
+    global start_time
+    global end_time
     try:
+        start_time = time.time()
         query_embeddings = get_huggingface_embeddings([user_answer])
         
         if query_embeddings is None:
@@ -204,16 +228,20 @@ def retrieve_context(retriever, user_answer):
         
         query_embeddings_np = np.array(query_embeddings).astype('float32')
 
+        # 올바르게 수정된 await 사용
         D, I = retriever.search(query_embeddings_np, k=3)  # Search for nearest neighbors
 
         # Retrieve the documents for each index returned by FAISS
         context_documents = [document_storage[idx] for idx in I[0]]
 
         #formatted_context = format_docs(context_documents)
+        end_time = time.time()
+        print('병렬처리된 retrieve_context time : ', end_time - start_time)
         return context_documents
     except Exception as e:
         logging.error(f"Error in retrieving context: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 def create_prompt(type):
     if type == 1: # 되고싶은 사람
@@ -277,7 +305,6 @@ def create_prompt(type):
                 Task: Analyze the context based on the user's mottos and examples thereof. 자기 자신을 소개 하듯이 작성해야한다. "사용자는" 이라는 시작 말을 사용하면 안된다.  "키-값 쌍" 형태가 아닌, 단순히 문자열 데이터를 객체 내의 값으로 사용해야한다.
             """
         )])
-    
     elif type == 3: #좌우명 분석을 통한 분석
         return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
             """
@@ -378,6 +405,8 @@ def create_prompt(type):
             """
         )])
     
+    
+        
 
 
 graph_prompt = """
@@ -387,70 +416,71 @@ graph_prompt = """
     you should not use ln in formula.
     """
 
-import time
+    
+async def llm_invoke_async(prompt):
+    loop = asyncio.get_running_loop()
+    # 동기 함수를 비동기 실행으로 처리
+    response = await loop.run_in_executor(None, llm35.invoke, prompt)
+    return response
 
-# 질문은 front에서 받아와야 하는 상황이다.
-def generate_geport(encrypted_id: str):
-    start_time = time.time()  # 함수 실행 시작 시간을 기록
-
-    url_list = read_user_blog_links(encrypted_id)
-    retriever = create_vector_store(url_list)
-    answers = read_user_questions(encrypted_id)
+# # 질문은 front에서 받아와야 하는 상황이다.
+async def generate_geport(encrypted_id: str):
+    start_time = time.time()
+    url_list =  read_user_blog_links(encrypted_id) 
+    retriever = await create_vector_store(url_list) # 비동기 처리
+    answers =  read_user_questions(encrypted_id)
 
     context1 = retrieve_context(retriever, answers[0])
     context2 = retrieve_context(retriever, answers[1])
 
-    #되고싶은 사람
     prompt1 = create_prompt(1).format_prompt(answer=answers[0], context=context1).to_messages()
-    answer_1 = llm35.invoke(prompt1)
-    answer_1 = answer_1.content
-    answer_1 = re.sub(r'[\n\t]+', ' ', answer_1)
-
-
-    #좌우명 분석
     prompt2 = create_prompt(2).format_prompt(answer=answers[1], context=context2).to_messages()
-    answer_2 = llm35.invoke(prompt2)
-    answer_2 = answer_2.content
-    answer_2 = re.sub(r'[\n\t]+', ' ', answer_2)
+    end_time = time.time()
 
-    #좌우명 분석에 대한 분석
+    print('비동기 처리 하기 전 단계의 청리 시간 : ', end_time - start_time)
+    start_time = time.time()
+    # 비동기 작업을 동시에 처리
+    answer_1, answer_2 = await asyncio.gather(
+        llm_invoke_async(prompt1),
+        llm_invoke_async(prompt2)
+    )
+    print('답변 1, 답변2 를 비동기 처리해서 얻은 시간 : ', end_time - start_time)
+    answer_1 = answer_1.content
+        #좌우명 분석에 대한 분석
     updated_answer2_prompt = create_prompt(3).format_prompt(answer_2=answer_2, answer2=answers[2], answer3=answers[3]).to_messages()
     answer_2 = llm35.invoke(updated_answer2_prompt)
     answer_2 = answer_2.content
 
-
-    #제 인생 변곡점은 이겁니다.
+        #제 인생 변곡점은 이겁니다.
     updated_answer3_prompt = create_prompt(4).format_prompt(answer2=answers[2], answer3=answers[3], answer4=answers[4], answer_2=answer_2).to_messages()
     answer_3 = llm35.invoke(updated_answer3_prompt)
     answer_3 = answer_3.content
     answer_3 = re.sub(r'[\n\t]+', ' ', answer_3)
 
 
+
     # 6. 질문 1과 3의 결과를 기반으로 추가적인 응답 생성
     json_input_for_answer4 = f"json {graph_prompt}\n{answer_1}\n{answer_3}"
-    answer_4 = llm35.invoke(json_input_for_answer4)
-    answer_4 = answer_4.content
-    answer_4 = re.sub(r'[\n\t]+', ' ', answer_4)
-
     updated_answer5_prompt = create_prompt(5).format_prompt(answer2=answers[2], answer3=answers[3], answer_1=answer_1, answer_2=answer_2).to_messages()
-    answer_5 = llm35.invoke(updated_answer5_prompt)
+
+    answer_4, answer_5 = await asyncio.gather(
+        llm_invoke_async(json_input_for_answer4),
+        llm_invoke_async(updated_answer5_prompt)
+    )
+    end_time = time.time()
+    answer_4 = answer_4.content
     answer_5 = answer_5.content
-    answer_5 = re.sub(r'[\n\t]+', ' ', answer_5)
 
-    end_time = time.time()  # 함수 실행 완료 시간을 기록
-    execution_time = end_time - start_time  # 실행 시간을 계산
-
-
-
-     # 최종 결과 리턴
+    execution_time = end_time - start_time
+    print('The Total Time After use Async : ',execution_time)
     result = {
             "answer_1": answer_1,
             "answer_2": answer_2,
             "answer_3": answer_3,
             "answer_4": answer_4,
             "answer_5": answer_5,
-            'time' : execution_time
         }
-    
-
     return result
+
+
+

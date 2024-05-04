@@ -401,6 +401,8 @@ def generate_geport(encrypted_id: str):
     execution_time = end_time - start_time  # 실행 시간을 계산
 
     result ={
+        'answers' : answers,
+        'summary' : summary_clova,
         'tobe' : tobo_clova,
         'motto' :motto_clova,
         'tunningPoint' : tunningPoint_clova,

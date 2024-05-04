@@ -23,6 +23,9 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_community.vectorstores import FAISS
+import asyncio
+import logging
+import time
 
 env_path = os.path.join(os.path.dirname(__file__), '../../.env')
 load_dotenv(dotenv_path=env_path)
@@ -104,11 +107,31 @@ def read_user_blog_links(encrypted_id: str) -> list:
         raise HTTPException(status_code=404, detail="User or blog links not found")
 
 
-def url_to_text(url):
-    loader = WebBaseLoader(url)
-    # url을 문서호 한다.
-    docs = loader.load()
-    return docs
+async def url_to_text(url):
+    try:
+        loader = WebBaseLoader(url)
+        docs = loader.load()
+        return '\n'.join([doc.page_content for doc in docs]) if docs else ""
+    except Exception as e:
+        logging.error(f"Failed to load or process URL {url}: {str(e)}")
+        return ""
+
+async def url_2_text(url_list):
+    global document_storage
+    document_storage = []  # Reset or initialize the storage
+    # Process each URL and extract text
+    text1, text2, text3, text4= await asyncio.gather(
+        url_to_text(url_list[0]),
+        url_to_text(url_list[1]),
+        url_to_text(url_list[2]),
+        url_to_text(url_list[3]),
+    )
+    texts = []
+    texts.append(text1)
+    texts.append(text2)
+    texts.append(text3)
+    texts.append(text4)
+    return texts
 
 
 def split_text(docs):
@@ -126,7 +149,7 @@ def create_init_prompt():
                 """
                 you are a helpful summary assistant who summarizes the text in 10 sentences, and finds various emotions like sad, in the text, 
                 and finds words related to happiness in the text. pelase answer with korean.    
-                The return format must be JSON      
+                The return format must be JSON. Please answers in Korean   
                 """
                 ),
             HumanMessagePromptTemplate.from_template(
@@ -137,11 +160,12 @@ def create_init_prompt():
                 For lunch, I enjoyed a course meal with wine at a restaurant overlooking the sea. In the evening, I had fun making new friends at a fireworks festival.
                 I really enjoyed this trip and would love to come back again.
 
-                ### Example Output : JSON
+                ### Example Output :
+                {{ "summary": "This is summary.","emotions": {{"happiness": 0,"joy": 0,"anxiousness": 0,"depression": 0,"anger": 0,"sadness": 0}}, "related_words": ["this is related words in array."] }}
 
                 ### Input
                 Question: Summarize this article, find emotions related to happiness and sadness, and identify words that are not directly emotional but are related to happiness.
-                Context: {context}
+                Context: {{context}}
 
                 ### Output
 
@@ -156,7 +180,8 @@ def create_prompt(type):
         return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
                 """
                 You are a helpful summary assistant tasked with creating concise summaries for blog posts. Each summary should be a simple, straightforward text and presented in a uniform format across all blogs. Ensure that the output is consistent and clear for each entry, and use plain text for the summaries.
-                The return format must be JSON.
+                longer than 10 stentence for each blog!
+                The return format must be JSON. Please answers in Korean   
                 """
                 ),
             HumanMessagePromptTemplate.from_template(
@@ -168,7 +193,9 @@ def create_prompt(type):
                 이번 여행은 정말 재미있었고 다음에도 다시 왔으면 좋겠다.
 
                 ### 예시 출력
-                오르골과 바다 그리고 불꽃축제와 함께 했던 정말 재미있었던 시드니 여행
+                {{"summary": "This is summary","source": " "}}
+
+                
 
                 ### 입력
                 Question: 이 블로그 글을 요약해줘
@@ -253,7 +280,7 @@ def create_prompt(type):
                 """
             )
         ])
-    
+    # 힐링 키워드
     elif type == 4:
         return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
                 """
@@ -261,7 +288,7 @@ def create_prompt(type):
                 you must return JSON 
                 You tell us what objects, food, etc. the user was happy with via the input. The format should be JSON that you must key is happy word that string, value is happy intensity that integer
                 i will use your answer for JSON.
-                The format should be JSON
+                The format should be JSON. Please answers in korean
                 """
             ),
             HumanMessagePromptTemplate.from_template(
@@ -340,7 +367,7 @@ def create_prompt(type):
        return ChatPromptTemplate.from_messages([
     SystemMessagePromptTemplate.from_template(
         """
-        You are a sophisticated AI psychologist capable of providing comprehensive feedback in a single, cohesive narrative. Your response should merge personality analysis with practical advice, offering a seamless narrative that helps the user understand their emotional and personality traits. The response must be formatted as JSON and include both the summary and advice in a single text field.
+        You are a sophisticated AI psychologist capable of providing comprehensive feedback in a single, cohesive narrative. Your response should merge personality analysis with practical advice, offering a seamless narrative that helps the user understand their emotional and personality traits. The response must be formatted as JSON and include both the summary and advice in a single text field.Please answers in Korean   
         """
     ),
     HumanMessagePromptTemplate.from_template(
@@ -372,126 +399,155 @@ def create_prompt(type):
 
 
 
+async def llm_invoke_async(prompt):
+    loop = asyncio.get_running_loop()
+    # 동기 함수를 비동기 실행으로 처리
+    response = await loop.run_in_executor(None, llm35.invoke, prompt)
+    return response
 
 
+import json
+import asyncio
+import time
 
-
-def get_inital(split_docs):
+async def get_inital(split_docs):
+    start_time = time.time()
     results = {}
-    for idx, doc in enumerate(split_docs):
-        prompt = create_init_prompt().format_prompt(context=doc).to_messages()
-        response = llm35(prompt)
+    
+    # 각 문서에 대한 프롬프트 생성
+    prompt1 = create_init_prompt().format_prompt(context=split_docs[0]).to_messages()
+    prompt2 = create_init_prompt().format_prompt(context=split_docs[1]).to_messages()
+    prompt3 = create_init_prompt().format_prompt(context=split_docs[2]).to_messages()
+    prompt4 = create_init_prompt().format_prompt(context=split_docs[3]).to_messages()
 
-         # AIMessage 객체에서 content 속성을 추출하고 JSON으로 파싱
-        content_str = response.content
-        content_data = json.loads(content_str)
-        
-        # 요약 정보 추출
-        summary = content_data['summary']
-        print(summary)
-        
-        results[f'blog_{idx + 1}'] = summary
+    # 각 문서에 대한 응답을 병렬로 수행
+    result1, result2, result3, result4 = await asyncio.gather(
+        llm_invoke_async(prompt1),
+        llm_invoke_async(prompt2),
+        llm_invoke_async(prompt3),
+        llm_invoke_async(prompt4)
+    )
+    
+    # 결과를 리스트에 추가
+    results['blogs_1'] = json.loads(result1.content)
+    results['blogs_2'] = json.loads(result2.content)
+    results['blogs_3'] = json.loads(result3.content)
+    results['blogs_4'] = json.loads(result4.content)
+
+    
+    # print('____' *  100)
+    # print(results)
+    # print('초기 값4개 뽑는데 걸리는 시간 : ', time.time() - start_time)
+    
     return json.dumps(results, ensure_ascii=False)
 
 
 
-def get_summary(split_docs):
+
+async def get_summary(split_docs):
+    start_time = time.time()
     results = {}
-    for idx, doc in enumerate(split_docs):
-        # 프롬프트 생성 및 응답 요청
-        prompt = create_prompt(1).format_prompt(context=doc).to_messages()
-        response = llm35(prompt)
-        
-        # AIMessage 객체에서 content 속성을 추출하고 JSON으로 파싱
-        content_str = response.content
-        content_data = json.loads(content_str)
-        
-        # 요약 정보 추출
-        summary = content_data['summary']
-        print(summary)
-        
-        results[f'blog_{idx + 1}'] = summary
+    prompt1 = create_prompt(1).format_prompt(context=split_docs[0]).to_messages()
+    prompt2 = create_prompt(1).format_prompt(context=split_docs[1]).to_messages()
+    prompt3 = create_prompt(1).format_prompt(context=split_docs[2]).to_messages()
+    prompt4 = create_prompt(1).format_prompt(context=split_docs[3]).to_messages()
+
+    result1, result2, result3, result4 = await asyncio.gather(
+        llm_invoke_async(prompt1),
+        llm_invoke_async(prompt2),
+        llm_invoke_async(prompt3),
+        llm_invoke_async(prompt4),
+    )
+    results['blogs_1'] = json.loads(result1.content)
+    results['blogs_2'] = json.loads(result2.content)
+    results['blogs_3'] = json.loads(result3.content)
+    results['blogs_4'] = json.loads(result4.content)
+    # print('____' *  100)
+    # print(results)
+    # print('블로그 4개 병렬로 요약하는데 걸리는 시간 : ', time.time() - start_time)
     return json.dumps(results, ensure_ascii=False)
 
 
 
-def get_emotionWave(docs):
+async def get_emotionWave(docs):
     results = {}
-    data_dict = json.loads(docs)
-    blog_list = list(data_dict.values())
-    print('blog_list' * 100)
+    start_time = time.time()
+    prompt1 = create_prompt(2).format_prompt(context=docs[0]).to_messages()
+    prompt2 = create_prompt(2).format_prompt(context=docs[1]).to_messages()
+    prompt3 = create_prompt(2).format_prompt(context=docs[2]).to_messages()
+    prompt4 = create_prompt(2).format_prompt(context=docs[3]).to_messages()
 
-    for idx, doc in enumerate(blog_list):
-        prompt = create_prompt(2).format_prompt(context=doc).to_messages()
-        response = llm35(prompt)
-        print(response)
+    result1, result2, result3, result4 = await asyncio.gather(
+            llm_invoke_async(prompt1),
+            llm_invoke_async(prompt2),
+            llm_invoke_async(prompt3),
+            llm_invoke_async(prompt4),
+        )
 
-        response_data = json.loads(response.content)
-        results[f'blog_{idx + 1}'] = response_data
+    results['blogs_1'] = json.loads(result1.content)
+    results['blogs_2'] = json.loads(result2.content)
+    results['blogs_3'] = json.loads(result3.content)
+    results['blogs_4'] = json.loads(result4.content)
 
+    # print('_____________ ' * 20)
+    # end_time = time.time()
+    # print('감정 물결 결과 : ',results)
+    # print('감정 물결 병렬처리 시간 : ', end_time - start_time)
+    # print('_____________ ' * 20)
     return json.dumps(results, ensure_ascii=False)
 
 
-def get_emotionSos(docs):
+
+async def get_emotionSos(docs):
+    results = {}
+    start_time = time.time()
     combined_docs = ''.join(docs)
     prompt = create_prompt(3).format_prompt(context=combined_docs).to_messages()
-    response = llm35(prompt) 
+    response = await asyncio.gather(llm_invoke_async(prompt))
+
+    results['emotion_sos'] =  json.loads(response[0].content)
+    end_time = time.time()
+    #print('_____________ ' * 20)
+    #print(results)
+    #print('감정 SOS 병렬처리 시간 : ', end_time - start_time)
+    #print('_____________ ' * 20)
+
+    return json.dumps(results, ensure_ascii=False)
 
 
-    content_str = response.content
-    content_data = json.loads(content_str)
-    
-    # 요약 정보 추출
-    sentiments = content_data['sentiments']
-    contents = content_data['contents']
-    print('BIG_5' * 100)
-    print("*" * 200)
-    print(sentiments)
-    print("*" * 200)
-    print(contents)
 
-    result = {
-        "emotions": sentiments,
-        "contents": contents
-    }
-
-    return json.dumps(result, ensure_ascii=False)
-
-
-def get_happyKeyword(docs):
+async def get_happyKeyword(docs):
+    results = {}
+    start_time = time.time()
     combined_docs = ''.join(docs)
     prompt = create_prompt(4).format_prompt(context=combined_docs).to_messages()
-    response = llm35(prompt) 
-    print('happy_keyword' * 100)
-    print(response)
-    print('*' * 100)
-    content_str = response.content
-    print(content_str)
-    content_data = json.loads(content_str)
+    response = await asyncio.gather(llm_invoke_async(prompt))
 
-    return json.dumps(content_data, ensure_ascii=False)
+    results['happy_keyword'] = json.loads(response[0].content)
+    end_time = time.time()
+    #print('_____________ ' * 20)
+    #print(results)
+    #print('힐링 키워드 병렬처리 시간 : ',end_time - start_time)
+
+    return json.dumps(results, ensure_ascii=False)
 
 
-def get_big5(docs, answers):
+async def get_big5(docs, answers):
+    results = {}
+    start_time = time.time()
     combined_docs = ''.join(docs)
     combined_answers = ''.join(answers)
     prompt = create_prompt(5).format_prompt(answers=combined_answers,context=combined_docs).to_messages()
-    response = llm35(prompt) 
-    print('BIG_5' * 100)
-    print(response)
-    content_str = response.content
-    content_data = json.loads(content_str)
-    result = {
-        'openness': content_data['openness'],
-        'sincerity': content_data['sincerity'],
-        'extroversion': content_data['extroversion'],
-        'friendliness': content_data['friendliness'],
-        'neuroticism': content_data['neuroticism']
-    }
+    response = await asyncio.gather(llm_invoke_async(prompt) )
 
-    # 결과를 JSON 문자열로 변환
-    json_result = json.dumps(result, ensure_ascii=False)
-    return json_result
+    results['emotion_big5'] = json.loads(response[0].content)
+    end_time = time.time()
+    # print('____________ * 20')
+    # print(results)
+    #print('감정 Big5 병렬처리 시간 : ', end_time - start_time)
+
+
+    return json.dumps(results, ensure_ascii=False)
 
 
 
@@ -507,19 +563,33 @@ def get_finalIgeport(emotion, big5, word, context):
     return json_result
 
 
-def merge_blog_data(summary_json, initial_json):
-    # 두 JSON 문자열을 파싱하여 딕셔너리로 변환
-    summary_data = json.loads(summary_json)
-    initial_data = json.loads(initial_json)
+import json
+
+def merge_blog_data(blogs_summary_json, blogs_initial_json):
+    # 문자열 형태의 JSON을 파이썬 딕셔너리로 변환
+    blogs_summary = json.loads(blogs_summary_json)
+    blogs_initial = json.loads(blogs_initial_json)
     
     # 결과를 저장할 딕셔너리 초기화
     merged_results = {}
     
-    # 요약과 초기 데이터를 합치기
-    for key in summary_data:
-        if key in initial_data:
-            # 요약과 초기 데이터를 하나의 문자열로 결합
-            combined_text = summary_data[key] + " " + initial_data[key]
+    # 각 블로그 키를 추출 (예: 'blogs_1', 'blogs_2', ...)
+    blog_keys = blogs_summary.keys()
+    
+    # 요약과 초기 데이터를 키별로 합치기
+    for key in blog_keys:
+        if key in blogs_initial:
+            # summary_data에서 summary만 추출
+            summary_text = blogs_summary[key]['summary']
+            # initial_data에서 summary만 추출하고 추가 정보를 포함
+            initial_summary_text = blogs_initial[key]['summary']
+            emotions = blogs_initial[key].get('emotions', {})
+            related_words = blogs_initial[key].get('related_words', {})
+            
+            # 결합할 텍스트 생성
+            combined_text = f"{summary_text}\n{initial_summary_text}\nEmotions: {emotions}\nRelated Words: {related_words}"
+            
+            # 딕셔너리에 저장
             merged_results[key] = combined_text
     
     # 결합된 데이터를 JSON 문자열로 변환하여 반환
@@ -527,49 +597,54 @@ def merge_blog_data(summary_json, initial_json):
 
 
 
-def generate_igeport(encrypted_id: str):
+
+async def generate_igeport(encrypted_id: str):
     blog_urls = read_user_blog_links(encrypted_id)
-    blog_docs = url_to_text(blog_urls)
-    
+
+    # 블로그 병렬 클롤링.
+    start_time = time.time()
+    blog_docs = await url_2_text(blog_urls)
+    end_time = time.time()
+    # print('___' * 30,blog_docs, '__' * 30)
+    # print('병렬처리 블로그 크롤링 시간 : ', end_time - start_time)
+
 
     user_answers = read_user_questions(encrypted_id)
-    # print(user_answers)
-    # 요약본
-    # print("this is blogs_summary")
-    # print(blog_summarys)
-    # 초기 분석
-    blog_initals = get_inital(blog_docs)
-    # print("this is blog_initals")
-    # print(blog_initals)
+    # start_time = time.time()
+    # blog_initals = await get_inital(blog_docs)
+    # blog_summarys = await get_summary(blog_docs)
+    # print('각각 처리하는데 걸리는 시간 : ', time.time() - start_time)
 
-    # 요약
-    blog_summarys = get_summary(blog_docs)
-    
+    start_time = time.time()
+    blogs_initals, blog_summarys = await asyncio.gather(
+        get_inital(blog_docs),
+        get_summary(blog_docs)
+    )
+    # print('블로그 내용 동시에 처리하는데 걸리는 시간 : ', time.time() - start_time)
 
-    merged_data = merge_blog_data(blog_summarys, blog_initals)
-    print(merged_data)
+    merged_data = merge_blog_data(blog_summarys, blogs_initals)
 
 
-    # 검정 물결 
-    blogs_emotionsWave = get_emotionWave(merged_data)
-    # 감정 SOS
-    blogs_emotionSos = get_emotionSos(merged_data)
-    # 힐링 키워드
-    blogs_happy = get_happyKeyword(merged_data)
-    # 빅 5성격
-    blogs_big5 = get_big5(user_answers,merged_data)
-    # 최종 igeport
-    blogs_finalIgeport = get_finalIgeport(blogs_emotionsWave,blogs_big5,blogs_happy,blog_initals)
+    start_time = time.time()
+    blogs_emotionsWave, blogs_emotionSos, blogs_happy, big_5 = await asyncio.gather(
+        get_emotionWave(merged_data),
+        get_emotionSos(merged_data),
+        get_happyKeyword(merged_data),
+        get_big5(user_answers,merged_data)
+    )
 
+    # # # 최종 igeport
+    blogs_finalIgeport = get_finalIgeport(blogs_emotionsWave,big_5,blogs_happy,blogs_initals)
 
-    results = {
-        "answer_1": blog_summarys,
-        "answer_2": blogs_emotionsWave,
-        "answer_3": blogs_emotionSos,
-        "answer_4": blogs_happy,
-        "answer_5": blogs_big5,
-        "answer_6": blogs_finalIgeport
+    result = {
+        "blogs_summary" : blog_summarys,
+        "blogs_emotionWave" : blogs_emotionsWave,
+        "blogs_emotionSos" : blogs_emotionSos,
+        "blogs_happyKeyword" : blogs_happy,
+        "blogs_emotinoBig5" : big_5,
+        'blogs_finalReport' : blogs_finalIgeport
     }
 
-    # JSON 문자열로 변환
-    return results
+    print('iGeport 생성 시간 : ', time.time() - start_time)
+
+    return result
