@@ -400,18 +400,23 @@ def generate_geport(encrypted_id: str):
     context1 = retrieve_context(retriever, answers[0])
     context2 = retrieve_context(retriever, answers[1])
 
+
     #되고싶은 사람
     prompt1 = create_prompt(1).format_prompt(answer=answers[0], context=context1).to_messages()
+    #좌우명 분석
+    prompt2 = create_prompt(2).format_prompt(answer=answers[1], context=context2).to_messages()
+
+
     answer_1 = llm35.invoke(prompt1)
     answer_1 = answer_1.content
     answer_1 = re.sub(r'[\n\t]+', ' ', answer_1)
 
-
-    #좌우명 분석
-    prompt2 = create_prompt(2).format_prompt(answer=answers[1], context=context2).to_messages()
     answer_2 = llm35.invoke(prompt2)
     answer_2 = answer_2.content
     answer_2 = re.sub(r'[\n\t]+', ' ', answer_2)
+
+    end_time = time.time()
+    
 
     #좌우명 분석에 대한 분석
     updated_answer2_prompt = create_prompt(3).format_prompt(answer_2=answer_2, answer2=answers[2], answer3=answers[3]).to_messages()
@@ -439,10 +444,11 @@ def generate_geport(encrypted_id: str):
 
     end_time = time.time()  # 함수 실행 완료 시간을 기록
     execution_time = end_time - start_time  # 실행 시간을 계산
+    print("The Total Time Before async function : ", execution_time)
 
 
 
-     # 최종 결과 리턴
+    #  # 최종 결과 리턴
     result = {
             "answer_1": answer_1,
             "answer_2": answer_2,
