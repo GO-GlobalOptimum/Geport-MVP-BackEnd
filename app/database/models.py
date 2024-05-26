@@ -8,7 +8,7 @@ class UserData(BaseModel):
     mbti: str
     age: int
     gender: str
-    blog_links: List[HttpUrl]
+    blog_links: List[str]
     questions: List[str]
     
 
