@@ -1,48 +1,114 @@
 # geport.py
-from fastapi import APIRouter, HTTPException, status, Body
+from fastapi import APIRouter, HTTPException, status, Request, Depends
 from app.database.models import UserData, UserQuestions
-from app.services.geport import create_user_service, read_user_service, read_list_service, generate_geport
+from app.services.geport.geport_gpt import create_user_service, read_user_service, read_list_service as read_list_service_MVP, generate_geport as generate_geport_MVP
+from app.services.geport.geport_clova import generate_geport as generate_geport_clova
+from app.services.geport.geport_asyncio import read_list_service as read_list_service, generate_geport_MVP as generate_geport_MVP, generate_geport as generate_geport
+from app.database.connection import get_db
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import List, Dict
 
+
+class GenerateGeportRequest(BaseModel):
+    member_id: int
+    post_ids: List[int]
+    questions: List[str]
+
+class GeportResponse(BaseModel):
+    member_id: int
+    geport_id: str
+    result: Dict[str, str]
 
 router = APIRouter()
 
+@router.post("/fastapi/geport/generate/", response_model=GeportResponse)
+async def generate_geport_endpoint_text(request_data: GenerateGeportRequest, db: Session = Depends(get_db)):
+    """
+        Summary: geport를 생성하는 API 입니다.
 
-@router.post("/geport/create", status_code=status.HTTP_201_CREATED)
-def create_user(user_data: UserData):
-    return create_user_service(user_data)
+        Parameters: member_id, post_ids, user_questions
+    """
+    member_id = request_data.member_id
+    post_ids = request_data.post_ids
+    questions = request_data.questions
 
+    print(f"member_id: {member_id}")
+    print(f"post_ids: {post_ids}")
+    print(f"questions: {questions}")
 
-@router.get("/geport/read/{encrypted_id}")
-def read_user(encrypted_id: str):
-    return read_user_service(encrypted_id)
-
-
-@router.get("/geport/list")
-def read_list():
-    return read_list_service()
-
-
-@router.get("/geport/generate-test/{encrypted_id}") #실제 지포트 생성
-def generate_geport_endpoint(encrypted_id:str):
-    # service.py의 generate_geport 함수 호출
-    result = generate_geport(encrypted_id)
+    result = await generate_geport(member_id, post_ids, questions, db)
+    
     return result
 
+@router.get("/fastapi/geport/database/list")
+def get_geport_list():
+    result = read_list_service()
+    return result
 
-@router.get("/geport/generate-dummy/{encrypted_id}") # 더미 데이터 전송
-def dummy_data(encrypted_id: str):
-    # 더미 데이터 정의
-    dummy_response = {
-        "encrypted_id": encrypted_id,
-        "result": {
-            "저는 이런 사람이 되고싶어요": "더미 응답 데이터입니다.",
-            "저의 좌우명은 다음과 같습니다": "더미 응답 데이터입니다.",
-            "제 인생의 변곡점은 다음과 같아요": "더미 응답 데이터입니다.",
-            "이것이 재 인생 함수입니다": {"content" :"더미 응답 데이터입니다.", 
-                               "function" : "y = -x^2"
-                               },
-            "Geport Solution": "더미 응답 데이터입니다.",
-        }
-    }
-    return dummy_response
-    
+#__________________________________MVP  __________________________________________
+
+# @router.post("fastapi/geport/generate/userInfo", status_code=status.HTTP_201_CREATED)
+
+# def create_user(user_data: UserData):
+#     """
+#     _summary_: MVP에서 특정 사용자가 정보를 입력하면 해당 정보를 DB에 저장하는 API 입니다.
+
+#     _params_ : UserData
+#     """
+#     return create_user_service(user_data)
+
+# @router.get("fastapi/geport/read/userInfo/{encrypted_id}")
+# def read_user(encrypted_id: str):
+#     """
+#     _summary_: MVP에서 사용자 id로 userInfo 테이블에서 특정 사용자의 정보를 가져오는 API 입니다.
+
+#     _params_ : encrypted_id
+#     """
+#     return read_user_service(encrypted_id)
+
+
+# @router.get("fastapi/geport/infoList")
+# def read_list():
+#     """
+#     _summary_: MVP에서 userInfo MongoDB 안의 모든 내용을 보여주는 API 입니다.
+
+#     _params_ : 
+#     """
+#     return read_list_service_MVP()
+
+
+# @router.get("fastapi/geport/generate/Geport/Clova/{encrypted_id}")  # 클로바를 이용한 지포트 생성
+# def generate_geport_endpoint_clova(encrypted_id: str):
+#     """
+#     _summary_: MVP 애서 geport를 CLOVA로 생성하는 API 입니다.
+
+#     _params_ : encrypted_id
+#     """
+#     result = generate_geport_clova(encrypted_id)
+#     return result
+
+
+# @router.get("fastapi/geport/generate/Geport/GPT/{encrypted_id}")  
+# def generate_geport_endpoint_gpt(encrypted_id: str):
+#     """
+#     _summary_: MVP 애서 geport를 GPT로 생성하는 API 입니다.
+
+#     _params_ : encrypted_id
+#     """
+#     result = generate_geport_MVP(encrypted_id)
+#     return result
+
+
+# @router.get("fastapi/geport/generate/Geport/GPT/Asyncio/MVP/{encrypted_id}")
+# async def generate_geport_endpoint_asyncio(encrypted_id: str):
+#     """
+#     _summary_: MVP 애서 geport를 GPT로 병렬적으로 생성하는 API 입니다.
+
+#     _params_ : encrypted_id
+#     """
+#     result = await generate_geport_MVP(encrypted_id)
+#     return result
+
+#__________________________________MVP  __________________________________________
+

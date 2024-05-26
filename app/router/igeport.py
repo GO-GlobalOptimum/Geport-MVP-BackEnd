@@ -1,51 +1,69 @@
 # todos.py에서 router 정의
-from fastapi import APIRouter, status
+from fastapi import APIRouter, status, Depends
+from app.database.connection import get_db
 from app.database.models import UserData
-from app.services.igeport import create_user_service, read_list_service, read_user_service, generate_igeport
-
+from app.services.igeport.igeport_asyncio import create_user_service, read_list_service, read_user_service, generate_igeport
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import List, Dict, Any
 
 router = APIRouter()
 
-@router.post("/igeport/create", status_code=status.HTTP_201_CREATED)
-def create_user(user_data: UserData):
-    return create_user_service(user_data)
+# @router.post("fastapi/igeport/generate/userInfo", status_code=status.HTTP_201_CREATED)
+# def create_user(user_data: UserData):
+#     return create_user_service(user_data)
 
 
-@router.get("/igeport/read/{encrypted_id}")
-def read_user(encrypted_id: str):
-    return read_user_service(encrypted_id)
+# @router.get("fastapi/igeport/read/userInfo/{encrypted_id}")
+# def read_user(encrypted_id: str):
+#     return read_user_service(encrypted_id)
 
-@router.get("/igeport/list")
-def read_list():
-    return read_list_service()
+# @router.get("fastapi/igeport/infoList")
+# def read_list():
+#     return read_list_service()
 
 
-@router.get("/igeport/generate-test/{encrypted_id}")
-def generate_geport_endpoint(encrypted_id:str):
-    # service.py의 generate_geport 함수 호출
-    result = generate_igeport(encrypted_id)
+# @router.get("fastapi/igeport/generate/Igeport/GPT/Asyncio/{encrypted_id}")
+# async def generate_geport_endpoint(encrypted_id:str):
+#     # service.py의 generate_geport 함수 호출
+#     result = await generate_igeport(encrypted_id)
+#     return result
+
+
+class GenerateGeportRequest(BaseModel):
+    member_id: int
+    questions: List[str]
+    post_ids: List[int]
+
+class GeportResponse(BaseModel):
+    member_id: int
+    igeport_id: str
+    result: Dict[str, Any]
+
+@router.post("/fastapi/igeport/generate/", response_model=GeportResponse)
+async def generate_geport_endpoint_text(request_data: GenerateGeportRequest, db: Session = Depends(get_db)):
+    """
+    Summary: igeport 생성하는 API 입니다.
+
+    Parameters: member_id, post_ids, user_questions
+    """
+    member_id = request_data.member_id
+    post_ids = request_data.post_ids
+    questions = request_data.questions
+
+    print(f"member_id: {member_id}")
+    print(f"post_ids: {post_ids}")
+
+    result = await generate_igeport(member_id, post_ids, questions, db)
+
+    return GeportResponse(
+        member_id=result['member_id'],
+        igeport_id=result['igeport_id'],
+        result=result['result']
+    )
+
+
+@router.get("/fastapi/igeport/database/list")
+def get_geport_list():
+    result = read_list_service()
     return result
-
-
-
-
-@router.get("/igeport/generate-dummy/{encrypted_id}") # 더미 데이터 전송
-def dummy_data(encrypted_id: str):
-    # 더미 데이터 정의
-    dummy_response = {
-        "encrypted_id": encrypted_id,
-        "result": {
-            "answer1" : {"1일차" : "1일차 내용입니다","2일차" : "2일차 내용입니다","3일차" : "3일차 내용입니다","4일차" : "4일차 내용입니다",},
-            "answer2" : {"happy": [10,20,30,40], "joy": [40,30,20,40], "anxious": [20,20,10,10], "depressed": [0,0,10,5], "anger": [5,0,5,10], "sadness": [0,0,0,10]},
-            "answer3" : {"anxious": [10,20,30,40], "depressed": [40,20,40,10], "anger": [0,10,20,40], "sadness": [40,10,20,20]},
-            "answer4" : {"dog": 80, "chicken": 70, "beef": 75, "taylor swift": 65, "day6": 60},
-            "answer5" : {"openness" : 60,
-                         "sincerity" : 55,
-                         "extroversion" : 41,
-                         "friendliness" : 32,
-                         "neuroticism" : 60
-                        },
-            "answer6" : "최종 솔루션입니다",
-        }
-    }
-    return dummy_response
