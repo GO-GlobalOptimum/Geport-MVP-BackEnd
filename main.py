@@ -6,11 +6,15 @@ import logging
 
 from app.router.geport import router as geport_router
 from app.router.igeport import router as igeport_router
+from app.router.tags import router as tags_router
+from app.router.thumbnail import router as thumbnail_router
 
 
 app = FastAPI(root_path="/api")
 app.include_router(geport_router)
 app.include_router(igeport_router)
+app.include_router(tags_router)
+app.include_router(thumbnail_router)
 
 @app.get("/")
 def read_root():
