@@ -16,3 +16,6 @@ httpx
 sentence_transformers
 konlpy
 motor
+pymysql
+sqlalchemy
+boto3
