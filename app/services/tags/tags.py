@@ -82,8 +82,8 @@ def generate_tags(post_id: int, db: Session):
     tags_string = ",".join(tags_json['tags'])
 
     # tags 데이터베이스에 저장
-    insert_query = text("INSERT INTO post_tag (post_id, name) VALUES (:post_id, :name)")
-    db.execute(insert_query, {"post_id": post_id, "name": tags_string})
+    insert_query = text("INSERT INTO post_tag (post_id, contents, is_user) VALUES (:post_id, :name, :is_user)")
+    db.execute(insert_query, {"post_id": post_id, "name": tags_string, "is_user": False})
     
     db.commit()
 
