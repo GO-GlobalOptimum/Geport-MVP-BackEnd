@@ -1,14 +1,18 @@
-from fastapi.responses import JSONResponse
-from fastapi import HTTPException, status
-import hashlib
-from app.database.models import UserData, UserQuestions
-from app.database.connection import user_baseInfo_collection
+import logging
 import os
+import hashlib
 import json
+import re
+import asyncio
+import time
+import numpy as np
+from fastapi import APIRouter, HTTPException, status, Body, Request, Depends
+from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
+from sqlalchemy import text  
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from bs4 import BeautifulSoup
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain.prompts import (
     ChatPromptTemplate,
     SystemMessagePromptTemplate,
@@ -19,51 +23,49 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_community.vectorstores import FAISS
-import logging
-import openai
-import numpy as np
-from faiss import IndexFlatL2
 from langchain.embeddings import HuggingFaceBgeEmbeddings
-import re
-import asyncio
-import time
+from faiss import IndexFlatL2
+from app.database.models import UserData, UserQuestions
+from app.database.connection import user_baseInfo_collection, get_db, geport_db
+from typing import List
 
-start_time = None
-end_time = None
+# Load environment variables
+load_dotenv()
+
+# Setup logging
 logging.basicConfig(level=logging.WARNING)
 
-
-env_path = os.path.join(os.path.dirname(__file__), '../../.env')
-load_dotenv(dotenv_path=env_path)
-
-# LLM 설정
+# Setup LLM
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-llm35 = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY, model_kwargs={"response_format": {'type':"json_object"}}, request_timeout=300)
-
-
-
-#embedding 모델 설정
-model_name = 'BAAI/bge-small-en'   #회사/모델명-모델사이즈-언어
-model_kwargs = {'device':'cpu'} #모델 설정 => cpu에서 쓸 수 있는 모델
-encode_kwargs = {'normalize_embeddings':True}
-
-#해당되는 모델을 다운 받는다.
-hf = HuggingFaceBgeEmbeddings(
-        model_name = model_name,
-        model_kwargs = model_kwargs,
-        encode_kwargs = encode_kwargs
+llm35 = ChatOpenAI(
+    model_name="gpt-3.5-turbo", 
+    temperature=0.9, 
+    openai_api_key=OPENAI_API_KEY, 
+    model_kwargs={"response_format": {'type': "json_object"}}, 
+    request_timeout=300
 )
+
+# Setup HuggingFace embedding model
+model_name = 'BAAI/bge-small-en'
+model_kwargs = {'device': 'cpu'}
+encode_kwargs = {'normalize_embeddings': True}
+
+hf = HuggingFaceBgeEmbeddings(
+    model_name=model_name,
+    model_kwargs=model_kwargs,
+    encode_kwargs=encode_kwargs
+)
+
 
 def create_encrypted_key(name, phone):
     hasher = hashlib.sha256()
     hasher.update(f"{name}{phone}".encode('utf-8'))
     return hasher.hexdigest()
 
+
 def create_user_service(user_data: UserData):
     encrypted_key = create_encrypted_key(user_data.name, user_data.phone)
-
     if user_baseInfo_collection.find_one({"_id": encrypted_key}):
-        # 이미 존재하는 경우, 적절한 에러 메시지를 반환합니다.
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="User with this ID already exists"
@@ -89,25 +91,24 @@ def read_user_service(encrypted_id: str):
     else:
         raise HTTPException(status_code=404, detail="User not found")
     
-async def read_list_service():
-    users = []
-    async for user in user_baseInfo_collection.find({}, {'_id': False}):
-        users.append(user)
-    return users
+
+# async def read_list_service():
+#     users = []
+#     async for user in user_baseInfo_collection.find({}, {'_id': False}):
+#         users.append(user)
+#     return users
 
 
 def read_user_blog_links(encrypted_id: str):
-    user =  user_baseInfo_collection.find_one({"encrypted_id": encrypted_id}, {'_id': False})
+    user = user_baseInfo_collection.find_one({"encrypted_id": encrypted_id}, {'_id': False})
     if user and "blog_links" in user:
         return user["blog_links"]
     else:
         raise HTTPException(status_code=404, detail="User or blog links not found")
 
 
-    
 def read_user_questions(encrypted_id: str) -> list:
-    # `await`를 사용하여 비동기적으로 데이터 조회
-    user =  user_baseInfo_collection.find_one({"encrypted_id": encrypted_id}, {'_id': False})
+    user = user_baseInfo_collection.find_one({"encrypted_id": encrypted_id}, {'_id': False})
     if user and "questions" in user:
         return user["questions"]
     else:
@@ -123,15 +124,16 @@ async def url_to_text(url):
         logging.error(f"Failed to load or process URL {url}: {str(e)}")
         return ""
 
+
 def split_text(docs):
-    # 특정 크기로 쪼갠다. 문맥을 위해서 15- 토큰은 overlap 시킨다.
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=150)
     splits = text_splitter.split_documents(docs)
     return splits
 
+
 embeddings_module = OpenAIEmbeddings(model="text-embedding-3-small")
 
-# Function to get embeddings using the HuggingFace model
+
 def get_huggingface_embeddings(texts):
     try:
         valid_texts = [text for text in texts if text.strip()]
@@ -139,13 +141,11 @@ def get_huggingface_embeddings(texts):
             logging.error("No valid texts provided for embedding.")
             return None
         
-        # Use the HuggingFace embeddings class to get embeddings for the list of texts
         embeddings = hf.embed_documents(valid_texts)
         if not embeddings:
             logging.error("No embeddings generated: Check if input texts are empty or not processed correctly.")
             return None
         
-        # Convert the embeddings to numpy arrays of type float32
         embeddings_np = np.array(embeddings).astype('float32')
         return embeddings_np
     except Exception as e:
@@ -153,48 +153,26 @@ def get_huggingface_embeddings(texts):
         return None
 
 
-from faiss import IndexFlatL2  # Ensure FAISS is correctly imported
-import numpy as np
-
-
-async def create_vector_store(url_list):
+async def create_vector_store(text_list):
     start_time = time.time()
     global document_storage
-    document_storage = []  # Reset or initialize the storage
+    document_storage = []
     try:
-        # Process each URL and extract text
-        text1, text2, text3, text4, text5= await asyncio.gather(
-            url_to_text(url_list[0]),
-            url_to_text(url_list[1]),
-            url_to_text(url_list[2]),
-            url_to_text(url_list[3]),
-            url_to_text(url_list[4]),
-        )
-        texts = []
-        texts.append(text1)
-        texts.append(text2)
-        texts.append(text3)
-        texts.append(text4)
-        texts.append(text5)
+        document_storage.extend(text_list)
 
+        if not text_list or all(not text for text in text_list):
+            raise ValueError("No text data provided.")
 
-        document_storage.extend(texts)  # Store texts for later retrieval
-
-        if not texts or all(not text for text in texts):
-            raise ValueError("No text data extracted from URLs.")
-
-        # Retrieve embeddings for the extracted texts
-        embeddings_np = get_huggingface_embeddings(texts)
+        embeddings_np = get_huggingface_embeddings(text_list)
         if embeddings_np is None:
             raise ValueError("Failed to retrieve embeddings or embeddings list is empty.")
 
-        # Create a FAISS index and add embeddings
         dimension = embeddings_np.shape[1]
         index = IndexFlatL2(dimension)
         index.add(embeddings_np)
         end_time = time.time()
 
-        print('retreiver generate time : ', end_time - start_time)
+        print('Retriever generate time:', end_time - start_time)
         return index
     except Exception as e:
         logging.error(f"Error in creating vector store: {str(e)}")
@@ -202,7 +180,6 @@ async def create_vector_store(url_list):
 
 
 def format_docs(docs):
-    # 검색한 문서 결과를 하나의 문단으로 합쳐줍니다.
     return "\n\n".join(doc.page_content for doc in docs)
 
 
@@ -217,26 +194,15 @@ def create_rag_chain(retriever, prompt):
 
 
 def retrieve_context(retriever, user_answer):
-    global start_time
-    global end_time
     try:
-        start_time = time.time()
         query_embeddings = get_huggingface_embeddings([user_answer])
-        
         if query_embeddings is None:
             raise ValueError("Failed to generate embeddings for the user answer.")
         
         query_embeddings_np = np.array(query_embeddings).astype('float32')
-
-        # 올바르게 수정된 await 사용
-        D, I = retriever.search(query_embeddings_np, k=3)  # Search for nearest neighbors
-
-        # Retrieve the documents for each index returned by FAISS
+        D, I = retriever.search(query_embeddings_np, k=3)
+        
         context_documents = [document_storage[idx] for idx in I[0]]
-
-        #formatted_context = format_docs(context_documents)
-        end_time = time.time()
-        print('병렬처리된 retrieve_context time : ', end_time - start_time)
         return context_documents
     except Exception as e:
         logging.error(f"Error in retrieving context: {str(e)}")
@@ -244,6 +210,15 @@ def retrieve_context(retriever, user_answer):
 
 
 def create_prompt(type):
+     # /***************************************************************************/#
+    '''
+        llm35의 정확도를 높히기 위한 prompt 엔지니어링 과정이다. 각 answer에 따라 서로 다른 promp를 진행한다.
+        과정 :
+            1. paramter로 원하는 prompt를 선택한다.
+            2. systemMessagePromptTemplate를 통해서 llm35 모델의 정확도를 올려준다.
+            3. HumanMessage에 우리가 원하는 답을 하도록 유도하여 항상 일관된 답을 얻을 수 있게 한다.
+    '''
+    # /***************************************************************************/#
     if type == 1: # 되고싶은 사람
         return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
             """
@@ -424,17 +399,26 @@ async def llm_invoke_async(prompt):
     return response
 
 # # 질문은 front에서 받아와야 하는 상황이다.
-async def generate_geport(encrypted_id: str):
+async def generate_geport_MVP(encrypted_id: str):
+    # /***************************************************************************/#
+    '''
+        MVP때 최종적으로 사용했던 Geport 생성 함수이다.
+        과정 :
+            1. 다른 블로그의 url을 가져와서 텍스트호 한다.
+            2. 불로은 Url의 내용을 바탕으로 retriever( vector DB )를 생성한다.
+            3. 이후 생성된 vector DB를 활용해 각각의 질문들을 llm을 통해서 만들어낸다.
+    '''
+    # /***************************************************************************/#
     start_time = time.time()
     url_list =  read_user_blog_links(encrypted_id) 
     retriever = await create_vector_store(url_list) # 비동기 처리
-    answers =  read_user_questions(encrypted_id)
+    questions =  read_user_questions(encrypted_id)
 
-    context1 = retrieve_context(retriever, answers[0])
-    context2 = retrieve_context(retriever, answers[1])
+    context1 = retrieve_context(retriever, questions[0])
+    context2 = retrieve_context(retriever, questions[1])
 
-    prompt1 = create_prompt(1).format_prompt(answer=answers[0], context=context1).to_messages()
-    prompt2 = create_prompt(2).format_prompt(answer=answers[1], context=context2).to_messages()
+    prompt1 = create_prompt(1).format_prompt(answer=questions[0], context=context1).to_messages()
+    prompt2 = create_prompt(2).format_prompt(answer=questions[1], context=context2).to_messages()
     end_time = time.time()
 
     print('비동기 처리 하기 전 단계의 청리 시간 : ', end_time - start_time)
@@ -447,12 +431,12 @@ async def generate_geport(encrypted_id: str):
     print('답변 1, 답변2 를 비동기 처리해서 얻은 시간 : ', end_time - start_time)
     answer_1 = answer_1.content
         #좌우명 분석에 대한 분석
-    updated_answer2_prompt = create_prompt(3).format_prompt(answer_2=answer_2, answer2=answers[2], answer3=answers[3]).to_messages()
+    updated_answer2_prompt = create_prompt(3).format_prompt(answer_2=answer_2, answer2=questions[2], answer3=questions[3]).to_messages()
     answer_2 = llm35.invoke(updated_answer2_prompt)
     answer_2 = answer_2.content
 
         #제 인생 변곡점은 이겁니다.
-    updated_answer3_prompt = create_prompt(4).format_prompt(answer2=answers[2], answer3=answers[3], answer4=answers[4], answer_2=answer_2).to_messages()
+    updated_answer3_prompt = create_prompt(4).format_prompt(answer2=questions[2], answer3=questions[3], answer4=questions[4], answer_2=answer_2).to_messages()
     answer_3 = llm35.invoke(updated_answer3_prompt)
     answer_3 = answer_3.content
     answer_3 = re.sub(r'[\n\t]+', ' ', answer_3)
@@ -461,7 +445,7 @@ async def generate_geport(encrypted_id: str):
 
     # 6. 질문 1과 3의 결과를 기반으로 추가적인 응답 생성
     json_input_for_answer4 = f"json {graph_prompt}\n{answer_1}\n{answer_3}"
-    updated_answer5_prompt = create_prompt(5).format_prompt(answer2=answers[2], answer3=answers[3], answer_1=answer_1, answer_2=answer_2).to_messages()
+    updated_answer5_prompt = create_prompt(5).format_prompt(answer2=questions[2], answer3=questions[3], answer_1=answer_1, answer_2=answer_2).to_messages()
 
     answer_4, answer_5 = await asyncio.gather(
         llm_invoke_async(json_input_for_answer4),
@@ -484,3 +468,159 @@ async def generate_geport(encrypted_id: str):
 
 
 
+async def check_db_connection(db: Session):
+    try:
+        # Simple query to check database connection
+        db.execute(text("SELECT 1"))
+    except Exception as e:
+        logging.error(f"Database connection error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Database connection error")
+    
+
+def read_list_service():
+    users = []
+    for user in geport_db.find({}, {'_id': False}):
+        users.append(user)
+    return users
+
+
+import hashlib
+import datetime
+def generate_geport_id(member_id: int) -> str:
+    # /***************************************************************************/#
+    '''
+        geport_id를 member_id + 현재 날짜와 시간으로 암호화 해주는 함수이다. 
+        과정 :
+            1. member_id와 현재 날짜와 시간을 가져온다.
+            2. 암호화 값을 만들어서 return 해준다.
+    '''
+    # /***************************************************************************/#
+    # 현재 날짜와 시간 가져오기
+    current_datetime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    # member_id와 현재 날짜와 시간을 문자열로 결합
+    combined_str = f"{member_id}-{current_datetime}"
+    # SHA256 해시 생성
+    hash_object = hashlib.sha256(combined_str.encode())
+    # 해시 값을 16진수 문자열로 변환
+    hash_hex = hash_object.hexdigest()
+    # 필요에 따라 해시 값을 줄이기 (예: 앞 10자리만 사용)
+    return hash_hex[:10]
+
+
+async def generate_geport(member_id: int, post_ids: List[int], questions: List[str], db: Session):
+    # /***************************************************************************/#
+    '''
+        최종적으로 geport를 생성하는 함수이다.
+        과정 :
+            1. router에서 sql에 접근 가능한 member_id와 데이터베이스를 전달한다.
+            2. sql에서 member id에 해당하는 사람의 post_id를 모두 가져온다.
+            3. 선택된 post_id의 post_content를 바탕으로 retriever( vector DB )를 생성한다.
+            4. 이후 생성된 vector DB를 활용해 각각의 질문들을 llm을 통해서 만들어낸다.
+    '''
+    # /***************************************************************************/#
+    logging.info(f"member_id: {member_id}")
+    logging.info(f"post_ids: {post_ids}")
+    logging.info(f"questions: {questions}")
+
+    # Check database connection
+    await check_db_connection(db)
+    
+    # Ensure post_ids is not empty
+    if not post_ids:
+        raise HTTPException(status_code=400, detail="post_ids list is empty")
+
+    # Generate a safe query string with placeholders for each post_id
+    placeholders = ', '.join([f":post_id_{i}" for i in range(len(post_ids))])
+    query_str = f"SELECT post_content FROM post WHERE post_id IN ({placeholders})"
+    query = text(query_str)
+
+    # Create a dictionary of parameters
+    params = {f"post_id_{i}": post_id for i, post_id in enumerate(post_ids)}
+
+    try:
+        result = db.execute(query, params).fetchall()
+    except Exception as e:
+        logging.error(f"Error executing query: {str(e)}")
+        raise HTTPException(status_code=500, detail="Database query error")
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Posts not found for the given post_ids")
+
+
+
+
+    post_contents = [row[0] for row in result]  # Assuming the first column is post_content
+
+    # Log the post contents
+    logging.info(f"Post contents: {post_contents}")
+
+    # Generate vector store
+    retriever = await create_vector_store(post_contents)
+
+    # Log questions
+    logging.info(f"Questions: {questions}")
+
+    # Retrieve context for each answer
+    context1 = retrieve_context(retriever, questions[0])
+    context2 = retrieve_context(retriever, questions[1])
+
+    # Continue with generating responses using the contexts...
+    prompt1 = create_prompt(1).format_prompt(answer=questions[0], context=context1).to_messages()
+    prompt2 = create_prompt(2).format_prompt(answer=questions[1], context=context2).to_messages()
+
+    # Log prompts before invoking LLM
+    logging.info(f"Prompt 1: {prompt1}")
+    logging.info(f"Prompt 2: {prompt2}")
+
+    # 비동기 작업을 동시에 처리
+    answer_1, answer_2 = await asyncio.gather(
+        llm_invoke_async(prompt1),
+        llm_invoke_async(prompt2)
+    )
+    answer_1 = answer_1.content
+    #좌우명 분석에 대한 분석
+    updated_answer2_prompt = create_prompt(3).format_prompt(answer_2=answer_2, answer2=questions[2], answer3=questions[3]).to_messages()
+    answer_2 = llm35.invoke(updated_answer2_prompt)
+    answer_2 = answer_2.content
+
+    #제 인생 변곡점은 이겁니다.
+    updated_answer3_prompt = create_prompt(4).format_prompt(answer2=questions[2], answer3=questions[3], answer4=questions[4], answer_2=answer_2).to_messages()
+    answer_3 = llm35.invoke(updated_answer3_prompt)
+    answer_3 = answer_3.content
+    answer_3 = re.sub(r'[\n\t]+', ' ', answer_3)
+
+    # 6. 질문 1과 3의 결과를 기반으로 추가적인 응답 생성
+    json_input_for_answer4 = f"json {graph_prompt}\n{answer_1}\n{answer_3}"
+    updated_answer5_prompt = create_prompt(5).format_prompt(answer2=questions[2], answer3=questions[3], answer_1=answer_1, answer_2=answer_2).to_messages()
+
+    answer_4, answer_5 = await asyncio.gather(
+        llm_invoke_async(json_input_for_answer4),
+        llm_invoke_async(updated_answer5_prompt)
+    )
+    answer_4 = answer_4.content
+    answer_5 = answer_5.content
+
+    result = {
+        "answer_1": answer_1,
+        "answer_2": answer_2,
+        "answer_3": answer_3,
+        "answer_4": answer_4,
+        "answer_5": answer_5,
+    }
+
+
+   # geport_id 생성
+    geport_id = generate_geport_id(member_id)
+
+    # 결과를 MongoDB에 저장
+    geport_db.insert_one({
+        "geport_id": geport_id,
+        "member_id": member_id,
+        "result": result
+    })
+
+    return {
+            "member_id": member_id,
+            "geport_id": geport_id,
+            "result": result
+        }

@@ -2,7 +2,7 @@ from fastapi.responses import JSONResponse
 from fastapi import HTTPException, status
 import hashlib
 from app.database.models import UserData, UserQuestions
-from app.database.connection import igeport_user_baseInfo_collection
+from app.database.connection import igeport_user_baseInfo_collection, igeport_db
 import os
 from typing import List, Dict
 import httpx
@@ -26,6 +26,9 @@ from langchain_community.vectorstores import FAISS
 import asyncio
 import logging
 import time
+from sqlalchemy.orm import Session
+from sqlalchemy import text 
+
 
 env_path = os.path.join(os.path.dirname(__file__), '../../.env')
 load_dotenv(dotenv_path=env_path)
@@ -75,12 +78,12 @@ def read_user_service(encrypted_id: str):
         raise HTTPException(status_code=404, detail="User not found")
 
 
-def read_list_service():
-    users = list(igeport_user_baseInfo_collection.find({}, {'_id': False}))
-    if users :
-        return users
-    else :
-        raise HTTPException(status_code=404, detail="Users not found")
+# def read_list_service():
+#     users = list(igeport_user_baseInfo_collection.find({}, {'_id': False}))
+#     if users :
+#         return users
+#     else :
+#         raise HTTPException(status_code=404, detail="Users not found")
 
 
 def read_user_blog_links(encrypted_id: str) -> list:
@@ -596,55 +599,117 @@ def merge_blog_data(blogs_summary_json, blogs_initial_json):
     return json.dumps(merged_results, ensure_ascii=False, indent=2)
 
 
+def read_list_service():
+    users = list(igeport_db.find({}, {'_id': False}))
+    if users :
+        return users
+    else :
+        raise HTTPException(status_code=404, detail="Users not found")
 
 
-async def generate_igeport(encrypted_id: str):
-    blog_urls = read_user_blog_links(encrypted_id)
-
-    # 블로그 병렬 클롤링.
-    start_time = time.time()
-    blog_docs = await url_2_text(blog_urls)
-    end_time = time.time()
-    # print('___' * 30,blog_docs, '__' * 30)
-    # print('병렬처리 블로그 크롤링 시간 : ', end_time - start_time)
 
 
-    user_answers = read_user_questions(encrypted_id)
-    # start_time = time.time()
-    # blog_initals = await get_inital(blog_docs)
-    # blog_summarys = await get_summary(blog_docs)
-    # print('각각 처리하는데 걸리는 시간 : ', time.time() - start_time)
+import hashlib
+import datetime
+def generate_igeport_id(member_id: int) -> str:
+    # /***************************************************************************/#
+    '''
+        geport_id를 member_id + 현재 날짜와 시간으로 암호화 해주는 함수이다. 
+        과정 :
+            1. member_id와 현재 날짜와 시간을 가져온다.
+            2. 암호화 값을 만들어서 return 해준다.
+    '''
+    # /***************************************************************************/#
+    # 현재 날짜와 시간 가져오기
+    current_datetime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    # member_id와 현재 날짜와 시간을 문자열로 결합
+    combined_str = f"{member_id}-{current_datetime}"
+    # SHA256 해시 생성
+    hash_object = hashlib.sha256(combined_str.encode())
+    # 해시 값을 16진수 문자열로 변환
+    hash_hex = hash_object.hexdigest()
+    # 필요에 따라 해시 값을 줄이기 (예: 앞 10자리만 사용)
+    return hash_hex[:10]
+
+
+
+import hashlib
+import datetime
+
+def generate_igeport_id(member_id: int) -> str:
+    current_datetime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    combined_str = f"{member_id}-{current_datetime}"
+    hash_object = hashlib.sha256(combined_str.encode())
+    hash_hex = hash_object.hexdigest()
+    return hash_hex[:10]
+
+async def generate_igeport(member_id, post_ids, questions, db):
+    logging.info(f"member_id: {member_id}")
+    logging.info(f"post_ids: {post_ids}")
+    logging.info(f"questions: {questions}")
+
+    if not post_ids:
+        raise HTTPException(status_code=400, detail="post_ids list is empty")
+
+    placeholders = ', '.join([f":post_id_{i}" for i in range(len(post_ids))])
+    query_str = f"SELECT post_content FROM post WHERE post_id IN ({placeholders})"
+    query = text(query_str)
+    params = {f"post_id_{i}": post_id for i, post_id in enumerate(post_ids)}
+
+    try:
+        result = db.execute(query, params).fetchall()
+    except Exception as e:
+        logging.error(f"Error executing query: {str(e)}")
+        raise HTTPException(status_code=500, detail="Database query error")
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Posts not found for the given post_ids")
+
+    blog_docs = [row[0] for row in result]
+    print("This is blog_docs : ", blog_docs)
+
+    user_answers = questions
 
     start_time = time.time()
     blogs_initals, blog_summarys = await asyncio.gather(
         get_inital(blog_docs),
         get_summary(blog_docs)
     )
-    # print('블로그 내용 동시에 처리하는데 걸리는 시간 : ', time.time() - start_time)
 
     merged_data = merge_blog_data(blog_summarys, blogs_initals)
 
-
-    start_time = time.time()
     blogs_emotionsWave, blogs_emotionSos, blogs_happy, big_5 = await asyncio.gather(
         get_emotionWave(merged_data),
         get_emotionSos(merged_data),
         get_happyKeyword(merged_data),
-        get_big5(user_answers,merged_data)
+        get_big5(user_answers, merged_data)
     )
 
-    # # # 최종 igeport
-    blogs_finalIgeport = get_finalIgeport(blogs_emotionsWave,big_5,blogs_happy,blogs_initals)
+    blogs_finalIgeport = get_finalIgeport(blogs_emotionsWave, big_5, blogs_happy, blogs_initals)
 
     result = {
-        "blogs_summary" : blog_summarys,
-        "blogs_emotionWave" : blogs_emotionsWave,
-        "blogs_emotionSos" : blogs_emotionSos,
-        "blogs_happyKeyword" : blogs_happy,
-        "blogs_emotinoBig5" : big_5,
-        'blogs_finalReport' : blogs_finalIgeport
+        "blogs_summary": json.loads(blog_summarys),
+        "blogs_emotionWave": json.loads(blogs_emotionsWave),
+        "blogs_emotionSos": json.loads(blogs_emotionSos),
+        "blogs_happyKeyword": json.loads(blogs_happy),
+        "blogs_emotionBig5": json.loads(big_5),
+        'blogs_finalReport': json.loads(blogs_finalIgeport)
     }
 
     print('iGeport 생성 시간 : ', time.time() - start_time)
 
-    return result
+    # geport_id 생성
+    igeport_id = generate_igeport_id(member_id)
+
+    # 결과를 MongoDB에 저장
+    igeport_db.insert_one({
+        "igeport_id": igeport_id,
+        "member_id": member_id,
+        "result": result
+    })
+
+    return {
+        "member_id": member_id,
+        "igeport_id": igeport_id,
+        "result": result
+    }
