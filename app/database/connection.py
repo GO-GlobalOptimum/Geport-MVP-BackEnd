@@ -17,13 +17,13 @@ igeport_db = db['igeport_db']
 
 
 # # 환경 변수에서 데이터베이스 연결 정보 가져오기 URL 수정
-AZURE_SQL_USERNAME = os.getenv('AZURE_SQL_USERNAME')
-AZURE_SQL_PASSWORD = os.getenv('AZURE_SQL_PASSWORD')
-AZURE_SQL_SERVER = os.getenv('AZURE_SQL_SERVER')
-AZURE_SQL_DATABASE = os.getenv('AZURE_SQL_DATABASE')
+# AZURE_SQL_USERNAME = os.getenv('AZURE_SQL_USERNAME')
+# AZURE_SQL_PASSWORD = os.getenv('AZURE_SQL_PASSWORD')
+# AZURE_SQL_SERVER = os.getenv('AZURE_SQL_SERVER')
+# AZURE_SQL_DATABASE = os.getenv('AZURE_SQL_DATABASE')
 
-# DB_URL = os.environ.get('MySQL_URL')
-DB_URL = f'mysql+pymysql://{AZURE_SQL_USERNAME}:{AZURE_SQL_PASSWORD}@{AZURE_SQL_SERVER}:3306/{AZURE_SQL_DATABASE}'
+DB_URL = os.environ.get('MySQL_URL')
+# DB_URL = f'mysql+pymysql://{AZURE_SQL_USERNAME}:{AZURE_SQL_PASSWORD}@{AZURE_SQL_SERVER}:3306/{AZURE_SQL_DATABASE}'
 
 # SQLAlchemy 엔진 생성
 engine = create_engine(DB_URL, pool_recycle=500)
