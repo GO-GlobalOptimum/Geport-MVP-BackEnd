@@ -19,3 +19,4 @@ motor
 pymysql
 sqlalchemy
 boto3
+mysqlclient
