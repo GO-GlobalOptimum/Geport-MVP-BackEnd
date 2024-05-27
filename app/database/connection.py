@@ -5,7 +5,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
 import os
 
-mongodb_url = os.getenv("MONGODB_URL", "mongodb://admin:1234@localhost:27017/admin")
+mongodb_url = os.getenv("MONGODB_URL")
 client = MongoClient(mongodb_url)
 db = client["admin"]
 
@@ -22,7 +22,7 @@ igeport_db = db['igeport_db']
 # AZURE_SQL_SERVER = os.getenv('AZURE_SQL_SERVER')
 # AZURE_SQL_DATABASE = os.getenv('AZURE_SQL_DATABASE')
 
-DB_URL = os.environ.get('MySQL_URL')
+DB_URL = os.environ.get('MYSQL_URL')
 # DB_URL = f'mysql+pymysql://{AZURE_SQL_USERNAME}:{AZURE_SQL_PASSWORD}@{AZURE_SQL_SERVER}:3306/{AZURE_SQL_DATABASE}'
 
 # SQLAlchemy 엔진 생성
