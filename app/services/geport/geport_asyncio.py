@@ -18,12 +18,13 @@ from langchain.prompts import (
     SystemMessagePromptTemplate,
     HumanMessagePromptTemplate
 )
+from langchain_community.embeddings import HuggingFaceBgeEmbeddings
+
 from langchain_community.document_loaders import WebBaseLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_community.vectorstores import FAISS
-from langchain.embeddings import HuggingFaceBgeEmbeddings
 from faiss import IndexFlatL2
 from app.database.models import UserData, UserQuestions
 from app.database.connection import user_baseInfo_collection, get_db, geport_db
