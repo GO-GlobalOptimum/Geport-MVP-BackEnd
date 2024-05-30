@@ -22,7 +22,7 @@ class GeportResponse(BaseModel):
 
 router = APIRouter()
 
-@router.post("/fastapi/geport/generate/", response_model=GeportResponse)
+@router.post("/geport/generate/", response_model=GeportResponse)
 async def generate_geport_endpoint_text(request_data: GenerateGeportRequest, db: Session = Depends(get_db)):
     """
         Summary: geport를 생성하는 API 입니다.
@@ -41,7 +41,7 @@ async def generate_geport_endpoint_text(request_data: GenerateGeportRequest, db:
     
     return result
 
-@router.get("/fastapi/geport/database/list")
+@router.get("/geport/database/list")
 def get_geport_list():
     result = read_list_service()
     return result

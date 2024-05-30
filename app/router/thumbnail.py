@@ -19,13 +19,13 @@ router = APIRouter()
     
 
 # post에서 썸내일 글 만들어내기
-@router.get("/fastapi/posts/generate/thumbnail/text/{post_id}")
+@router.get("/posts/generate/thumbnail/text/{post_id}")
 def generate_thumbnail_text(post_id :int,db: Session = Depends(get_db)):
     return generate_thumbnailText(post_id, db)
 
 
 # post에서 썸내일 이미지 만들어내기
-@router.get("/fastapi/posts/generate/thumbnail/image/{post_id}")
+@router.get("/posts/generate/thumbnail/image/{post_id}")
 def generate_thumbnail_image(post_id :int,db: Session = Depends(get_db)):
     return generate_thumbnailImage(post_id, db)
 

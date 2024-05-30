@@ -14,6 +14,8 @@ from langchain.prompts import (
     SystemMessagePromptTemplate,
     HumanMessagePromptTemplate
 )
+from langchain_community.embeddings import HuggingFaceBgeEmbeddings
+
 from langchain_community.document_loaders import WebBaseLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.runnables import RunnablePassthrough
@@ -23,7 +25,6 @@ import logging
 import openai
 import numpy as np
 from faiss import IndexFlatL2
-from langchain.embeddings import HuggingFaceBgeEmbeddings
 import re
 
 logging.basicConfig(level=logging.WARNING)
