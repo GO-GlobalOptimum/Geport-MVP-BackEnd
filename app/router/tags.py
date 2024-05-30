@@ -26,6 +26,6 @@ router = APIRouter()
 #     return get_post_by_id(post_id, db)
 
 # post에 대한 tag 생성.
-@router.get("/fastapi/posts/generate/tags/{post_id}")
+@router.get("/posts/generate/tags/{post_id}")
 def generate_post_tags(post_id :int, db: Session = Depends(get_db)):
     return generate_tags(post_id, db)
