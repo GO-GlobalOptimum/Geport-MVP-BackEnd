@@ -24,3 +24,4 @@ pymysql
 sqlalchemy
 boto3
 python-jose
+mysqlclient
