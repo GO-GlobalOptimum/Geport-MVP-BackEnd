@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 import os
 from dotenv import load_dotenv
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from starlette.middleware.sessions import SessionMiddleware
 
 # 환경 변수 로드
 load_dotenv()
@@ -16,6 +17,7 @@ from app.router.geport import router as geport_router
 from app.router.igeport import router as igeport_router
 from app.router.tags import router as tags_router
 from app.router.thumbnail import router as thumbnail_router
+from app.router.recnetView import router as recent_view_router
 
 class Settings(BaseModel):
     authjwt_secret_key: str = os.getenv("SECRET_KEY")
@@ -32,20 +34,27 @@ def get_current_user(Authorize: AuthJWT = Depends(), credentials: HTTPAuthorizat
     try:
         Authorize.jwt_required()
         raw_token = Authorize.get_raw_jwt()
-        user_email = raw_token['email']  # 이메일 정보 추출
-        return user_email
-    except KeyError:
-        raise HTTPException(status_code=400, detail="Email not found in token")
+        user_email = raw_token.get('email')  # 이메일 정보 추출
+        user_name = raw_token.get('name')    # 이름 정보 추출
+        if not all([user_email, user_name]):
+            raise KeyError("Missing required fields in token")
+        return {"email": user_email, "name": user_name}
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=f"Missing fields in token: {e}")
     except AuthJWTException as e:
         raise HTTPException(status_code=401, detail=str(e))
 
 app = FastAPI(root_path="/fastapi")
+
+# 세션 미들웨어 추가
+app.add_middleware(SessionMiddleware, secret_key='your_secret_key')
 
 # 라우터 추가
 app.include_router(geport_router)
 app.include_router(igeport_router)
 app.include_router(tags_router)
 app.include_router(thumbnail_router)
+app.include_router(recent_view_router)  # 최근 본 글 라우터 추가
 
 # 인증 예외 핸들러 추가
 app.add_exception_handler(AuthJWTException, authjwt_exception_handler)
@@ -56,9 +65,9 @@ def read_root():
 
 # 보호된 경로 추가
 @app.get("/protected")
-def protected_route(user: str = Depends(get_current_user)):
+def protected_route(user: dict = Depends(get_current_user)):
     return {"msg": "You are authorized", "user": user}
 
 @app.get("/user-info")
-def user_info(email: str = Depends(get_current_user)):
-    return {"email": email}
+def user_info(user: dict = Depends(get_current_user)):
+    return {"email": user["email"], "name": user["name"]}
