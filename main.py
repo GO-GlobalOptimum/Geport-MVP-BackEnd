@@ -35,10 +35,9 @@ def get_current_user(Authorize: AuthJWT = Depends(), credentials: HTTPAuthorizat
         Authorize.jwt_required()
         raw_token = Authorize.get_raw_jwt()
         user_email = raw_token.get('email')  # 이메일 정보 추출
-        user_name = raw_token.get('name')    # 이름 정보 추출
-        if not all([user_email, user_name]):
+        if not user_email:
             raise KeyError("Missing required fields in token")
-        return {"email": user_email, "name": user_name}
+        return {"email": user_email}
     except KeyError as e:
         raise HTTPException(status_code=400, detail=f"Missing fields in token: {e}")
     except AuthJWTException as e:
@@ -70,4 +69,4 @@ def protected_route(user: dict = Depends(get_current_user)):
 
 @app.get("/user-info")
 def user_info(user: dict = Depends(get_current_user)):
-    return {"email": user["email"], "name": user["name"]}
+    return {"email": user["email"]}
