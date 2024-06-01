@@ -17,7 +17,7 @@ from app.router.geport import router as geport_router
 from app.router.igeport import router as igeport_router
 from app.router.tags import router as tags_router
 from app.router.thumbnail import router as thumbnail_router
-from app.router.recnetView import router as recent_view_router
+from app.router.recentView import router as recent_view_router
 
 class Settings(BaseModel):
     authjwt_secret_key: str = os.getenv("SECRET_KEY")
