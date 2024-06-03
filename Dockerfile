@@ -10,7 +10,6 @@ ARG SECRET_KEY
 ARG ALGORITHM
 ARG ACCESS_TOKEN_EXPIRE_MINUTES
 
-
 # 환경 변수 설정
 ENV OPENAI_API_KEY=${OPENAI_API_KEY}
 ENV NAVER_CLOUD_ACCESS_KEY_ID=${NAVER_CLOUD_ACCESS_KEY_ID}
@@ -21,27 +20,24 @@ ENV GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
 ENV SECRET_KEY=${SECRET_KEY}
 ENV ALGORITHM=${ALGORITHM}
 ENV ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
+
 # 작업 디렉토리 설정
 WORKDIR /src    
 
 # 프로젝트 파일 복사
 COPY . /src
 
-# 시스템 패키지 설치 및 Python 패키지 설치
-RUN apt-get update && \
+# 패키지 소스 업데이트 및 시스템 패키지 설치
+RUN sed -i 's/http:\/\/archive.ubuntu.com/http:\/\/mirrors.edge.kernel.org/g' /etc/apt/sources.list && \
+    apt-get update && \
     apt-get install -y sqlite3 && \
-    pip install --no-cache-dir -r requirements.txt  
+    apt-get clean
+
+# Python 패키지 설치
+RUN pip install --no-cache-dir -r requirements.txt  
 
 # 포트 설정
 EXPOSE 8000
 
 # 컨테이너 실행 명령
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-
-
-
-
-
-# ____________________________________________________________________________________________________________ # 
-
-
