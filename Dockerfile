@@ -28,7 +28,10 @@ WORKDIR /src
 COPY . /src
 
 # 패키지 소스 업데이트 및 시스템 패키지 설치
-RUN sed -i 's/http:\/\/archive.ubuntu.com/http:\/\/mirrors.edge.kernel.org/g' /etc/apt/sources.list && \
+RUN if [ ! -f /etc/apt/sources.list ]; then \
+      echo "deb http://archive.ubuntu.com/ubuntu focal main restricted universe multiverse" > /etc/apt/sources.list; \
+    fi && \
+    sed -i 's/http:\/\/archive.ubuntu.com/http:\/\/mirrors.edge.kernel.org/g' /etc/apt/sources.list && \
     apt-get update && \
     apt-get install -y sqlite3 && \
     apt-get clean
