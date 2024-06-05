@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, Depends
 from sqlalchemy.orm import Session
 from app.services.recentView.recentView import add_recent_post, get_recent_posts, fetch_post_data, fetch_recent_posts_data
 from app.services.auth.auth import get_current_user
-from app.database.connection import get_db
+from app.database.connection import get_read_db
 
 router = APIRouter()
 
@@ -14,10 +14,10 @@ Returns:
     _type_: post_id를 db에 저장한다.
 """
 @router.get("/posts/{post_id}", tags=["posts"])
-async def read_post(post_id: int, request: Request, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+async def read_post(post_id: int, request: Request, user: dict = Depends(get_current_user), read_db: Session = Depends(get_read_db)):
     member_email = user["email"]
-    add_recent_post(request, post_id, member_email, db)
-    post_data = fetch_post_data(post_id, db)
+    add_recent_post(request, post_id, member_email,read_db)
+    post_data = fetch_post_data(post_id,read_db)
     return post_data
 
 """_summary_
@@ -27,7 +27,7 @@ Returns:
     _type_: 최근 본 게시글 리스트들
 """
 @router.get("/recent-posts", tags=["posts"])
-async def get_recent_posts_route(request: Request, user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+async def get_recent_posts_route(request: Request, user: dict = Depends(get_current_user), read_db: Session = Depends(get_read_db)):
     recent_posts = get_recent_posts(request)
-    recent_posts_data = fetch_recent_posts_data(recent_posts, db)
+    recent_posts_data = fetch_recent_posts_data(recent_posts,read_db)
     return recent_posts_data

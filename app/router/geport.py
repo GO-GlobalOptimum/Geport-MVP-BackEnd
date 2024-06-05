@@ -19,7 +19,7 @@ class GeportResponse(BaseModel):
 router = APIRouter()
 
 @router.post("/geport/generate/", response_model=GeportResponse)
-async def generate_geport_endpoint(request_data: GenerateGeportRequest, read_db: Session = Depends(get_read_db), write_db: Session = Depends(get_write_db), mongo_db = Depends(get_mongo_db), current_user: dict = Depends(get_current_user)):
+async def generate_geport_endpoint(request_data: GenerateGeportRequest, read_db: Session = Depends(get_read_db), write_db: Session = Depends(get_write_db), mongo_db = Depends(geport_db), current_user: dict = Depends(get_current_user)):
     """
     Summary: geport를 생성하는 API 입니다.
 

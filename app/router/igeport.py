@@ -1,5 +1,6 @@
 from fastapi import APIRouter, status, Depends
-from app.database.connection import get_db
+#from app.database.connection import get_db
+from app.database.connection import get_read_db, get_write_db
 from app.services.igeport.igeport_asyncio import read_list_service, generate_igeport
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -20,7 +21,7 @@ class GeportResponse(BaseModel):
     result: Dict[str, Any]
 
 @router.post("/igeport/generate/", response_model=GeportResponse)
-async def generate_geport_endpoint_text(request_data: GenerateGeportRequest, db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+async def generate_geport_endpoint_text(request_data: GenerateGeportRequest, read_db: Session = Depends(get_read_db), current_user: dict = Depends(get_current_user)):
     """
     Summary: igeport 생성하는 API 입니다.
 
@@ -32,7 +33,7 @@ async def generate_geport_endpoint_text(request_data: GenerateGeportRequest, db:
     logging.info(f"post_ids: {post_ids}")
     logging.info(f"questions: {questions}")
 
-    result = await generate_igeport(post_ids, questions, db, current_user)
+    result = await generate_igeport(post_ids, questions, read_db, current_user)
 
     return GeportResponse(
         member_id=result['member_id'],
