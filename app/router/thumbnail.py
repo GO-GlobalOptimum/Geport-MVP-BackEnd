@@ -8,8 +8,8 @@ router = APIRouter()
 
 # post에서 썸내일 글 만들어내기
 @router.get("/posts/generate/thumbnail/text/{post_id}")
-def generate_thumbnail_text(post_id: int, read_db: Session = Depends(get_read_db)):
-    return generate_thumbnailText(post_id, read_db)
+def generate_thumbnail_text(post_id: int, read_db: Session = Depends(get_read_db), write_db: Session = Depends(get_write_db)):
+    return generate_thumbnailText(post_id, read_db, write_db)
 
 
 # post에서 썸내일 이미지 만들어내기

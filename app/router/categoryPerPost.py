@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from app.database.connection import get_db
+from app.database.connection import get_read_db
 from app.services.categoryPerPost.categoryPerPost import get_category_post_counts
 from app.services.auth.auth import get_current_user
 from pydantic import BaseModel
@@ -14,7 +14,7 @@ class CategoryPostCount(BaseModel):
     post_count: int
 
 @router.get("/categories/post-counts/", response_model=List[CategoryPostCount])
-async def get_category_post_counts_endpoint(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):
+async def get_category_post_counts_endpoint(db: Session = Depends(get_read_db), current_user: dict = Depends(get_current_user)):
     """
     카테고리별로 사용자가 작성한 포스트의 개수를 반환하는 API 입니다.
 

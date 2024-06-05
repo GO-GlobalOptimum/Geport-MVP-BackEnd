@@ -93,11 +93,6 @@ def read_user_service(encrypted_id: str):
         raise HTTPException(status_code=404, detail="User not found")
     
 
-# async def read_list_service():
-#     users = []
-#     async for user in user_baseInfo_collection.find({}, {'_id': False}):
-#         users.append(user)
-#     return users
 
 
 def read_user_blog_links(encrypted_id: str):
