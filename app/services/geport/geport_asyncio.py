@@ -399,75 +399,6 @@ async def llm_invoke_async(prompt):
     response = await loop.run_in_executor(None, llm35.invoke, prompt)
     return response
 
-# # 질문은 front에서 받아와야 하는 상황이다.
-# async def generate_geport_MVP(encrypted_id: str):
-#     # /***************************************************************************/#
-#     '''
-#         MVP때 최종적으로 사용했던 Geport 생성 함수이다.
-#         과정 :
-#             1. 다른 블로그의 url을 가져와서 텍스트호 한다.
-#             2. 불로은 Url의 내용을 바탕으로 retriever( vector DB )를 생성한다.
-#             3. 이후 생성된 vector DB를 활용해 각각의 질문들을 llm을 통해서 만들어낸다.
-#     '''
-#     # /***************************************************************************/#
-#     start_time = time.time()
-#     url_list =  read_user_blog_links(encrypted_id) 
-#     retriever = await create_vector_store(url_list) # 비동기 처리
-#     questions =  read_user_questions(encrypted_id)
-
-#     context1 = retrieve_context(retriever, questions[0])
-#     context2 = retrieve_context(retriever, questions[1])
-
-#     prompt1 = create_prompt(1).format_prompt(answer=questions[0], context=context1).to_messages()
-#     prompt2 = create_prompt(2).format_prompt(answer=questions[1], context=context2).to_messages()
-#     end_time = time.time()
-
-#     print('비동기 처리 하기 전 단계의 청리 시간 : ', end_time - start_time)
-#     start_time = time.time()
-#     # 비동기 작업을 동시에 처리
-#     answer_1, answer_2 = await asyncio.gather(
-#         llm_invoke_async(prompt1),
-#         llm_invoke_async(prompt2)
-#     )
-#     print('답변 1, 답변2 를 비동기 처리해서 얻은 시간 : ', end_time - start_time)
-#     answer_1 = answer_1.content
-#         #좌우명 분석에 대한 분석
-#     updated_answer2_prompt = create_prompt(3).format_prompt(answer_2=answer_2, answer2=questions[2], answer3=questions[3]).to_messages()
-#     answer_2 = llm35.invoke(updated_answer2_prompt)
-#     answer_2 = answer_2.content
-
-#         #제 인생 변곡점은 이겁니다.
-#     updated_answer3_prompt = create_prompt(4).format_prompt(answer2=questions[2], answer3=questions[3], answer4=questions[4], answer_2=answer_2).to_messages()
-#     answer_3 = llm35.invoke(updated_answer3_prompt)
-#     answer_3 = answer_3.content
-#     answer_3 = re.sub(r'[\n\t]+', ' ', answer_3)
-
-
-
-#     # 6. 질문 1과 3의 결과를 기반으로 추가적인 응답 생성
-#     json_input_for_answer4 = f"json {graph_prompt}\n{answer_1}\n{answer_3}"
-#     updated_answer5_prompt = create_prompt(5).format_prompt(answer2=questions[2], answer3=questions[3], answer_1=answer_1, answer_2=answer_2).to_messages()
-
-#     answer_4, answer_5 = await asyncio.gather(
-#         llm_invoke_async(json_input_for_answer4),
-#         llm_invoke_async(updated_answer5_prompt)
-#     )
-#     end_time = time.time()
-#     answer_4 = answer_4.content
-#     answer_5 = answer_5.content
-
-#     execution_time = end_time - start_time
-#     print('The Total Time After use Async : ',execution_time)
-#     result = {
-#             "answer_1": answer_1,
-#             "answer_2": answer_2,
-#             "answer_3": answer_3,
-#             "answer_4": answer_4,
-#             "answer_5": answer_5,
-#         }
-#     return result
-
-
 
 async def check_db_connection(db: Session):
     try:
@@ -487,154 +418,15 @@ def read_list_service():
 
 import hashlib
 import datetime
+
 def generate_geport_id(member_id: int) -> str:
-    # /***************************************************************************/#
-    '''
-        geport_id를 member_id + 현재 날짜와 시간으로 암호화 해주는 함수이다. 
-        과정 :
-            1. member_id와 현재 날짜와 시간을 가져온다.
-            2. 암호화 값을 만들어서 return 해준다.
-    '''
-    # /***************************************************************************/#
-    # 현재 날짜와 시간 가져오기
     current_datetime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-    # member_id와 현재 날짜와 시간을 문자열로 결합
     combined_str = f"{member_id}-{current_datetime}"
-    # SHA256 해시 생성
     hash_object = hashlib.sha256(combined_str.encode())
-    # 해시 값을 16진수 문자열로 변환
     hash_hex = hash_object.hexdigest()
-    # 필요에 따라 해시 값을 줄이기 (예: 앞 10자리만 사용)
     return hash_hex[:10]
 
-
-# async def generate_geport(member_id: int, post_ids: List[int], questions: List[str], db: Session):
-#     # /***************************************************************************/#
-#     '''
-#         최종적으로 geport를 생성하는 함수이다.
-#         과정 :
-#             1. router에서 sql에 접근 가능한 member_id와 데이터베이스를 전달한다.
-#             2. sql에서 member id에 해당하는 사람의 post_id를 모두 가져온다.
-#             3. 선택된 post_id의 post_content를 바탕으로 retriever( vector DB )를 생성한다.
-#             4. 이후 생성된 vector DB를 활용해 각각의 질문들을 llm을 통해서 만들어낸다.
-#     '''
-#     # /***************************************************************************/#
-#     logging.info(f"member_id: {member_id}")
-#     logging.info(f"post_ids: {post_ids}")
-#     logging.info(f"questions: {questions}")
-
-#     # Check database connection
-#     await check_db_connection(db)
-    
-#     # Ensure post_ids is not empty
-#     if not post_ids:
-#         raise HTTPException(status_code=400, detail="post_ids list is empty")
-
-#     # Generate a safe query string with placeholders for each post_id
-#     placeholders = ', '.join([f":post_id_{i}" for i in range(len(post_ids))])
-#     query_str = f"SELECT post_content FROM post WHERE post_id IN ({placeholders})"
-#     query = text(query_str)
-
-#     # Create a dictionary of parameters
-#     params = {f"post_id_{i}": post_id for i, post_id in enumerate(post_ids)}
-
-#     try:
-#         result = db.execute(query, params).fetchall()
-#     except Exception as e:
-#         logging.error(f"Error executing query: {str(e)}")
-#         raise HTTPException(status_code=500, detail="Database query error")
-
-#     if not result:
-#         raise HTTPException(status_code=404, detail="Posts not found for the given post_ids")
-
-
-
-
-#     post_contents = [row[0] for row in result]  # Assuming the first column is post_content
-
-#     # Log the post contents
-#     logging.info(f"Post contents: {post_contents}")
-
-#     # Generate vector store
-#     retriever = await create_vector_store(post_contents)
-
-#     # Log questions
-#     logging.info(f"Questions: {questions}")
-
-#     # Retrieve context for each answer
-#     context1 = retrieve_context(retriever, questions[0])
-#     context2 = retrieve_context(retriever, questions[1])
-
-#     # Continue with generating responses using the contexts...
-#     prompt1 = create_prompt(1).format_prompt(answer=questions[0], context=context1).to_messages()
-#     prompt2 = create_prompt(2).format_prompt(answer=questions[1], context=context2).to_messages()
-
-#     # Log prompts before invoking LLM
-#     logging.info(f"Prompt 1: {prompt1}")
-#     logging.info(f"Prompt 2: {prompt2}")
-
-#     # 비동기 작업을 동시에 처리
-#     answer_1, answer_2 = await asyncio.gather(
-#         llm_invoke_async(prompt1),
-#         llm_invoke_async(prompt2)
-#     )
-#     answer_1 = answer_1.content
-#     #좌우명 분석에 대한 분석
-#     updated_answer2_prompt = create_prompt(3).format_prompt(answer_2=answer_2, answer2=questions[2], answer3=questions[3]).to_messages()
-#     answer_2 = llm35.invoke(updated_answer2_prompt)
-#     answer_2 = answer_2.content
-
-#     #제 인생 변곡점은 이겁니다.
-#     updated_answer3_prompt = create_prompt(4).format_prompt(answer2=questions[2], answer3=questions[3], answer4=questions[4], answer_2=answer_2).to_messages()
-#     answer_3 = llm35.invoke(updated_answer3_prompt)
-#     answer_3 = answer_3.content
-#     answer_3 = re.sub(r'[\n\t]+', ' ', answer_3)
-
-#     # 6. 질문 1과 3의 결과를 기반으로 추가적인 응답 생성
-#     json_input_for_answer4 = f"json {graph_prompt}\n{answer_1}\n{answer_3}"
-#     updated_answer5_prompt = create_prompt(5).format_prompt(answer2=questions[2], answer3=questions[3], answer_1=answer_1, answer_2=answer_2).to_messages()
-
-#     answer_4, answer_5 = await asyncio.gather(
-#         llm_invoke_async(json_input_for_answer4),
-#         llm_invoke_async(updated_answer5_prompt)
-#     )
-#     answer_4 = answer_4.content
-#     answer_5 = answer_5.content
-
-#     result = {
-#         "answer_1": answer_1,
-#         "answer_2": answer_2,
-#         "answer_3": answer_3,
-#         "answer_4": answer_4,
-#         "answer_5": answer_5,
-#     }
-
-
-#    # geport_id 생성
-#     geport_id = generate_geport_id(member_id)
-
-#     # 결과를 MongoDB에 저장
-#     geport_db.insert_one({
-#         "geport_id": geport_id,
-#         "member_id": member_id,
-#         "result": result
-#     })
-
-#     return {
-#             "member_id": member_id,
-#             "geport_id": geport_id,
-#             "result": result
-#         }
-
-
-from fastapi import HTTPException, Depends
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from typing import List
-import asyncio
-import logging
-
-async def generate_geport(post_ids: List[int], questions: List[str], db: Session):
+async def generate_geport(post_ids: List[int], questions: List[str], read_db: Session, write_db: Session, current_user: dict):
     logging.info(f"Post IDs: {post_ids}")
     logging.info(f"Questions: {questions}")
 
@@ -648,7 +440,7 @@ async def generate_geport(post_ids: List[int], questions: List[str], db: Session
     params = {"post_id": post_ids[0]}
 
     try:
-        result = db.execute(query, params).fetchone()
+        result = read_db.execute(query, params).fetchone()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
         raise HTTPException(status_code=500, detail="Database query error")
@@ -658,6 +450,10 @@ async def generate_geport(post_ids: List[int], questions: List[str], db: Session
 
     member_id = result.member_id
 
+    # Ensure the member_id matches the current user
+    if current_user["email"] != get_user_email_from_member_id(read_db, member_id):
+        raise HTTPException(status_code=403, detail="You are not authorized to access this resource")
+
     # Retrieve all post contents for the given post_ids
     placeholders = ', '.join([f":post_id_{i}" for i in range(len(post_ids))])
     query_str = f"SELECT post_content FROM Post WHERE post_id IN ({placeholders})"
@@ -665,7 +461,7 @@ async def generate_geport(post_ids: List[int], questions: List[str], db: Session
     params = {f"post_id_{i}": post_id for i, post_id in enumerate(post_ids)}
 
     try:
-        result = db.execute(query, params).fetchall()
+        result = read_db.execute(query, params).fetchall()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
         raise HTTPException(status_code=500, detail="Database query error")
@@ -736,7 +532,7 @@ async def generate_geport(post_ids: List[int], questions: List[str], db: Session
     geport_id = generate_geport_id(member_id)
 
     # 결과를 MongoDB에 저장
-    geport_db.insert_one({
+    write_db.insert_one({
         "geport_id": geport_id,
         "member_id": member_id,
         "result": result
@@ -747,3 +543,20 @@ async def generate_geport(post_ids: List[int], questions: List[str], db: Session
         "geport_id": geport_id,
         "result": result
     }
+
+def get_user_email_from_member_id(db: Session, member_id: int) -> str:
+    query_str = f"SELECT email FROM Member WHERE member_id = :member_id"
+    query = text(query_str)
+    params = {"member_id": member_id}
+
+    result = db.execute(query, params).fetchone()
+    if result:
+        return result.email
+    raise HTTPException(status_code=404, detail="User email not found for the given member_id")
+
+def read_list_service():
+    users = list(geport_db.find({}, {'_id': False}))
+    if users :
+        return users
+    else :
+        raise HTTPException(status_code=404, detail="Users not found")

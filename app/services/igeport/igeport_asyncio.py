@@ -722,7 +722,7 @@ def generate_igeport_id(member_id: int) -> str:
     hash_hex = hash_object.hexdigest()
     return hash_hex[:10]
 
-async def generate_igeport(post_ids: List[int], questions: List[str], db: Session, current_user: dict):
+async def generate_igeport(post_ids: List[int], questions: List[str], read_db: Session, write_db: Session, current_user: dict):
     logging.info(f"Post IDs: {post_ids}")
     logging.info(f"Questions: {questions}")
 
@@ -736,7 +736,7 @@ async def generate_igeport(post_ids: List[int], questions: List[str], db: Sessio
     params = {"post_id": post_ids[0]}
 
     try:
-        result = db.execute(query, params).fetchone()
+        result = read_db.execute(query, params).fetchone()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
         raise HTTPException(status_code=500, detail="Database query error")
@@ -747,7 +747,7 @@ async def generate_igeport(post_ids: List[int], questions: List[str], db: Sessio
     member_id = result.member_id
 
     # Ensure the member_id matches the current user
-    if current_user["email"] != get_user_email_from_member_id(db, member_id):
+    if current_user["email"] != get_user_email_from_member_id(read_db, member_id):
         raise HTTPException(status_code=403, detail="You are not authorized to access this resource")
 
     # Retrieve all post contents for the given post_ids
@@ -757,7 +757,7 @@ async def generate_igeport(post_ids: List[int], questions: List[str], db: Sessio
     params = {f"post_id_{i}": post_id for i, post_id in enumerate(post_ids)}
 
     try:
-        result = db.execute(query, params).fetchall()
+        result = read_db.execute(query, params).fetchall()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
         raise HTTPException(status_code=500, detail="Database query error")
@@ -823,3 +823,10 @@ def get_user_email_from_member_id(db: Session, member_id: int) -> str:
     if result:
         return result.email
     raise HTTPException(status_code=404, detail="User email not found for the given member_id")
+
+def read_list_service():
+    users = list(igeport_db.find({}, {'_id': False}))
+    if users :
+        return users
+    else :
+        raise HTTPException(status_code=404, detail="Users not found")

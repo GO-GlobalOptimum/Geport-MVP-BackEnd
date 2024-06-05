@@ -48,7 +48,7 @@ def create_prompt():
 
         ### Output
         """
-        )])
+    )])
 
 def get_post_by_id(post_id: int, db: Session):
     try:
@@ -65,9 +65,9 @@ def get_post_by_id(post_id: int, db: Session):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# 썸내일 내용을 만들어준다.
-def generate_thumbnailText(post_id: int, db: Session):
-    result = get_post_by_id(post_id, db)
+# 썸네일 내용을 만들어준다.
+def generate_thumbnailText(post_id: int, read_db: Session, write_db: Session):
+    result = get_post_by_id(post_id, read_db)
     title = result['title']
     content = result['post_content']
     prompt1 = create_prompt().format_prompt(title=title, context=content).to_messages()
@@ -83,10 +83,10 @@ def generate_thumbnailText(post_id: int, db: Session):
     # 썸네일 텍스트를 데이터베이스에 업데이트
     try:
         update_query = text("UPDATE post SET thumbnail_text = :thumbnail_text WHERE post_id = :post_id")
-        db.execute(update_query, {"thumbnail_text": thumbnail_json['content'], "post_id": post_id})
-        db.commit()
+        write_db.execute(update_query, {"thumbnail_text": thumbnail_json['content'], "post_id": post_id})
+        write_db.commit()
     except Exception as e:
-        db.rollback()
+        write_db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
     return thumbnail_json

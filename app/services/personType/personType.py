@@ -1,43 +1,25 @@
-from sqlalchemy.orm import Session
-from fastapi import HTTPException
-from sqlalchemy.sql import text
-from pydantic import BaseModel
-from fastapi.responses import JSONResponse
-from fastapi import HTTPException, status
-import hashlib
-from app.database.models import UserData, UserQuestions
-from app.database.connection import igeport_user_baseInfo_collection, igeport_db
 import os
-from typing import List, Dict
-import httpx
+import logging
 import json
-import requests
-# from pymongo import MongoClient
+from sqlalchemy.orm import Session
+from sqlalchemy import text
+from fastapi import HTTPException
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from bs4 import BeautifulSoup
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain.prompts import (
     ChatPromptTemplate,
-    HumanMessagePromptTemplate,
-    SystemMessagePromptTemplate
+    SystemMessagePromptTemplate,
+    HumanMessagePromptTemplate
 )
-from langchain_community.document_loaders import WebBaseLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_core.runnables import RunnablePassthrough
-from langchain_core.output_parsers import StrOutputParser
-from langchain_community.vectorstores import FAISS
-import asyncio
-import logging
-import time
-from sqlalchemy.orm import Session
-from sqlalchemy import text 
+from pydantic import BaseModel
 
+logging.basicConfig(level=logging.WARNING)
+env_path = os.path.join(os.path.dirname(__file__), '../../../.env')
+load_dotenv(dotenv_path=env_path)
 
+# LLM 설정
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 llm35 = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY, model_kwargs={"response_format": {'type':"json_object"}}, request_timeout=300)
-
-
 
 class User(BaseModel):
     email: str
@@ -66,7 +48,7 @@ def get_post_tags_for_recent_posts(db: Session, current_user: User):
         # 사용자 이메일을 통해 사용자 ID를 가져옵니다.
         user_id_query = text("""
             SELECT member_id
-            FROM member
+            FROM Member
             WHERE email = :email
         """)
         user_id_result = db.execute(user_id_query, {"email": current_user.email}).fetchone()
@@ -113,9 +95,6 @@ def get_post_tags_for_recent_posts(db: Session, current_user: User):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-
-
 def get_concatenated_tags(db: Session, current_user: User) -> str:
     """
     현재 사용자의 최근 게시글 10개의 태그를 하나의 문자열로 묶어서 반환합니다.
@@ -135,11 +114,6 @@ def get_concatenated_tags(db: Session, current_user: User) -> str:
 
     concatenated_tags = ', '.join(tag['contents'] for tag in tags)
     return concatenated_tags
-
-
-
-
-
 
 def create_prompt():
     return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
@@ -187,29 +161,12 @@ The result should always be displayed in Korean and output as JSON.
 
             )])
 
-
-def generate_personType(db, current_user):
-    """_summary_
-        : 사용자의 최근 게시글 10개를 가지고 와서 해당 게시글에 AI가 만든 태그를 통해서
-        사용자가 어떠한 사람인지를 만들어주는 함수이다.
-        Client에서 원할떄 해당 API를 호출하면 DB에 사용자의 Type이 만들어진다.
-    Args:
-        db (_type_): _description_
-        current_user (_type_): _description_
-
-    Raises:
-        HTTPException: _description_
-
-    Returns:
-        _type_: _description_
-    """    
-    tags = get_concatenated_tags(db, current_user)
+def generate_personType(read_db: Session, write_db: Session, current_user: User):
+    tags = get_concatenated_tags(read_db, current_user)
     
-
     prompt1 = create_prompt().format_prompt(context=tags).to_messages()
 
     person_type = llm35.invoke(prompt1)
-
 
      # JSON 응답에서 content 값만 추출
     content = person_type.content
@@ -223,23 +180,16 @@ def generate_personType(db, current_user):
             FROM Member
             WHERE email = :email
         """)
-    user_id_result = db.execute(user_id_query, {"email": current_user.email}).fetchone()
+    user_id_result = read_db.execute(user_id_query, {"email": current_user.email}).fetchone()
 
     if not user_id_result:
         raise HTTPException(status_code=404, detail="User not found")
 
     user_id = user_id_result.member_id
-    
 
     # tags 데이터베이스에 저장
     update_query = text("UPDATE Member SET person = :person WHERE member_id = :member_id")
-    db.execute(update_query, {"person": person_type["result"], "member_id": user_id})  
-    db.commit()
-
-
-   
+    write_db.execute(update_query, {"person": person_type["result"], "member_id": user_id})  
+    write_db.commit()
 
     return person_type
-    
-
-

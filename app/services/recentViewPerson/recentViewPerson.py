@@ -4,7 +4,7 @@ from fastapi import HTTPException
 import logging
 
 def get_user_email_from_member_id(db: Session, member_id: int) -> str:
-    query_str = text("SELECT email FROM member WHERE member_id = :member_id")
+    query_str = text("SELECT email FROM Member WHERE member_id = :member_id")
     params = {"member_id": member_id}
 
     result = db.execute(query_str, params).fetchone()
@@ -12,12 +12,13 @@ def get_user_email_from_member_id(db: Session, member_id: int) -> str:
         return result.email
     raise HTTPException(status_code=404, detail="User email not found for the given member_id")
 
-def get_recently_viewed_person_types(db: Session, current_user: dict):
+def get_recently_viewed_person_types(read_db: Session, write_db: Session, current_user: dict):
     """
     사용자가 최근에 본 게시글의 작성자 유형을 조회하여 많은 유형 순으로 정렬하여 반환하는 함수입니다.
 
     Parameters:
-        db (Session): 데이터베이스 세션.
+        read_db (Session): 읽기 전용 데이터베이스 세션.
+        write_db (Session): 쓰기 전용 데이터베이스 세션.
         current_user (dict): 현재 인증된 사용자 정보.
 
     Returns:
@@ -30,7 +31,7 @@ def get_recently_viewed_person_types(db: Session, current_user: dict):
     params = {"email": user_email}
 
     try:
-        result = db.execute(query_str, params).fetchone()
+        result = read_db.execute(query_str, params).fetchone()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
         raise HTTPException(status_code=500, detail="Database query error")
@@ -45,7 +46,7 @@ def get_recently_viewed_person_types(db: Session, current_user: dict):
     params = {"member_id": member_id}
 
     try:
-        post_ids = db.execute(query_str, params).fetchall()
+        post_ids = read_db.execute(query_str, params).fetchall()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
         raise HTTPException(status_code=500, detail="Database query error")
@@ -60,7 +61,7 @@ def get_recently_viewed_person_types(db: Session, current_user: dict):
     params = {"post_ids": tuple(post_ids)}
 
     try:
-        member_ids = db.execute(query_str, params).fetchall()
+        member_ids = read_db.execute(query_str, params).fetchall()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
         raise HTTPException(status_code=500, detail="Database query error")
@@ -78,7 +79,7 @@ def get_recently_viewed_person_types(db: Session, current_user: dict):
     params = {"member_ids": tuple(member_ids)}
 
     try:
-        result = db.execute(query_str, params).fetchall()
+        result = read_db.execute(query_str, params).fetchall()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
         raise HTTPException(status_code=500, detail="Database query error")

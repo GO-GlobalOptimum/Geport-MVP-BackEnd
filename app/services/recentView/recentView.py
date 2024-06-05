@@ -50,10 +50,10 @@ def add_recent_post(request: Request, post_id: int, member_email: str, db: Sessi
                 "member_id": member_id,
                 "updated_time": datetime.now()
             })
-            logger.info(f"Updated View count for post_id {post_id} and member_id {member_id}")
+            logger.info(f"Updated view count for post_id {post_id} and member_id {member_id}")
         else:
             insert_query = text("""
-                INSERT INTO view (post_id, member_id, view_count, updated_time)
+                INSERT INTO View (post_id, member_id, view_count, updated_time)
                 VALUES (:post_id, :member_id, :view_count, :updated_time)
             """)
             db.execute(insert_query, {
