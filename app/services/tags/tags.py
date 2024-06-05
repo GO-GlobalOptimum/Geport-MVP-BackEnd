@@ -1,7 +1,9 @@
+import os
+import logging
+import json
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from fastapi import HTTPException
-import os
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain.prompts import (
@@ -9,11 +11,9 @@ from langchain.prompts import (
     SystemMessagePromptTemplate,
     HumanMessagePromptTemplate
 )
-import logging
-import json
 
 logging.basicConfig(level=logging.WARNING)
-env_path = os.path.join(os.path.dirname(__file__), '../../.env')
+env_path = os.path.join(os.path.dirname(__file__), '../../../.env')
 load_dotenv(dotenv_path=env_path)
 
 # LLM 설정
@@ -62,8 +62,8 @@ def get_post_by_id(post_id: int, db: Session):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-def generate_tags(post_id: int, db: Session):
-    result = get_post_by_id(post_id, db)
+def generate_tags(post_id: int, read_db: Session, write_db: Session):
+    result = get_post_by_id(post_id, read_db)
     title = result['title']
     content = result['post_content']
     post_id = result['post_id']
@@ -82,10 +82,9 @@ def generate_tags(post_id: int, db: Session):
     tags_string = ",".join(tags_json['tags'])
 
     # tags 데이터베이스에 저장
-    insert_query = text("INSERT INTO Post_tag (post_id, contents, is_user) VALUES (:post_id, :name, :is_user)")
-    db.execute(insert_query, {"post_id": post_id, "name": tags_string, "is_user": False})
+    insert_query = text("INSERT INTO Post_tag (post_id, contents, is_user) VALUES (:post_id, :contents, :is_user)")
+    write_db.execute(insert_query, {"post_id": post_id, "contents": tags_string, "is_user": False})
     
-    db.commit()
+    write_db.commit()
 
     return tags_json
-
