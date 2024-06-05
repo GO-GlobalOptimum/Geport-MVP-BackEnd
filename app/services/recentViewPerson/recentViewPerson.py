@@ -12,7 +12,7 @@ def get_user_email_from_member_id(db: Session, member_id: int) -> str:
         return result.email
     raise HTTPException(status_code=404, detail="User email not found for the given member_id")
 
-def get_recently_viewed_person_types(read_db: Session, write_db: Session, current_user: dict):
+def get_recently_viewed_person_types(read_db: Session, current_user: dict):
     """
     사용자가 최근에 본 게시글의 작성자 유형을 조회하여 많은 유형 순으로 정렬하여 반환하는 함수입니다.
 
