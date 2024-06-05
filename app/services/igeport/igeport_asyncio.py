@@ -290,18 +290,18 @@ def create_prompt(type):
                 You are a useful helper that uses our input to analyze sentiment.
                 you must return JSON 
                 You tell us what objects, food, etc. the user was happy with via the input. The format should be JSON that you must key is happy word that string, value is happy intensity that integer
-                i will use your answer for JSON.
+                i will use your answer for JSON. please answer more than 15 keywords
                 The format should be JSON. Please answers in korean
                 """
             ),
             HumanMessagePromptTemplate.from_template(
                 """
                 ### 예시 입력
-                Question: 이 블로그의 텍스트를 분석하여, 작성자가 어떠한 사물, 사람, 음식 등 행복감을 느꼈던 키워드가 무엇인지 단어를 추출해주세요(영어로 출력 바랍니다)
+                Question: 이 블로그의 텍스트를 분석하여, 작성자가 어떠한 사물, 사람, 음식 등 행복감을 느꼈던 키워드가 무엇인지 단어를 10 ~ 20개 정도 추출해주세요(영어로 출력 바랍니다)
                 Context: (관련 내용이 있는 블로그 글들)
 
                 ### 예시 출력
-                Answer : 블로그 내용들 중 행복감을 느끼게 했던 key word를 영어로 뽑아내서, 이의 강도를 같이 출력합니다.
+                Answer : 블로그 내용들 중 행복감을 느끼게 했던 key word를 영어로 뽑아내서, 이의 강도를 같이 출력합니다. 단어는 10개 이상 반환해주세요
 
                 ### 입력
                 Question: 이 블로그의 내용을 분석하여, 작성자가 행복감을 느꼈던 요소 반드시 다섯개만 출력하도록.
@@ -334,25 +334,25 @@ def create_prompt(type):
 
             {{
             "openness": {{
-                "score": 60
+                "big5_score": 60
             }},
             "sincerity": {{
-                "score": 55
+                "big5_score": 55
             }},
             "extroversion": {{
-                "score": 41
+                "big5_score": 41
             }},
             "friendliness": {{
-                "score": 32
+                "big5_score": 32
             }},
             "neuroticism": {{
-                "score": 60
+                "big5_score": 60
             }},
             "summary": {{
-                "text": "사용자의 성격을 분석한 결과, 다양한 측면에서 특징적인 성향이 드러났습니다. 먼저, 사용자의 개방성 점수는 60점으로, 이는 블로그에서 설명된 새로운 경험에 대한 호기심에서 잘 나타납니다. 사용자는 새로운 것을 탐험하고자 하는 강한 의지를 보입니다. 성실성 측면에서는 55점을 기록했으며, 이는 이벤트에 대한 자세하고 정직한 서술에서 반영됩니다. 사용자는 맡은 바를 성실하게 수행하며, 정확하고 진실된 정보를 제공하는 경향이 있습니다. 외향성 점수는 41점으로, 이는 사용자가 친구들과의 활동에 보통 수준으로 참여하고 있음을 나타냅니다. 사용자는 필요할 때 사회적 상호작용을 즐기지만, 과도하게 외향적인 성향을 보이지는 않습니다. 친근함 점수는 32점으로, 블로그에서 언급된 다른 사람들과의 상호작용에서 어느 정도 친근함을 보입니다. 이는 사용자가 타인과의 관계에서 어느 정도의 거리를 유지하며 상호작용함을 시사합니다. 마지막으로, 신경증 점수는 60점으로, 사용자는 블로그에서 언급된 스트레스 요인으로 인해 더 높은 수준의 신경증을 보일 수 있습니다. 이는 사용자가 스트레스 상황에서 민감하게 반응할 수 있음을 의미합니다. 총체적으로, 사용자는 새로운 경험에 대한 호기심과 성실함을 가지고 있으며, 사회적 상호작용에서 균형을 유지하려는 성향을 보입니다. 또한, 스트레스 상황에서 다소 민감하게 반응하는 경향이 있습니다."
+                "big5_description": "사용자의 성격을 분석한 결과, 다양한 측면에서 특징적인 성향이 드러났습니다. 먼저, 사용자의 개방성 점수는 60점으로, 이는 블로그에서 설명된 새로운 경험에 대한 호기심에서 잘 나타납니다. 사용자는 새로운 것을 탐험하고자 하는 강한 의지를 보입니다. 성실성 측면에서는 55점을 기록했으며, 이는 이벤트에 대한 자세하고 정직한 서술에서 반영됩니다. 사용자는 맡은 바를 성실하게 수행하며, 정확하고 진실된 정보를 제공하는 경향이 있습니다. 외향성 점수는 41점으로, 이는 사용자가 친구들과의 활동에 보통 수준으로 참여하고 있음을 나타냅니다. 사용자는 필요할 때 사회적 상호작용을 즐기지만, 과도하게 외향적인 성향을 보이지는 않습니다. 친근함 점수는 32점으로, 블로그에서 언급된 다른 사람들과의 상호작용에서 어느 정도 친근함을 보입니다. 이는 사용자가 타인과의 관계에서 어느 정도의 거리를 유지하며 상호작용함을 시사합니다. 마지막으로, 신경증 점수는 60점으로, 사용자는 블로그에서 언급된 스트레스 요인으로 인해 더 높은 수준의 신경증을 보일 수 있습니다. 이는 사용자가 스트레스 상황에서 민감하게 반응할 수 있음을 의미합니다. 총체적으로, 사용자는 새로운 경험에 대한 호기심과 성실함을 가지고 있으며, 사회적 상호작용에서 균형을 유지하려는 성향을 보입니다. 또한, 스트레스 상황에서 다소 민감하게 반응하는 경향이 있습니다."
             }}
             }}
-
+        Please make sure to return results in the above format
 
         ### 입력
         Question: Please analyze the big5 personality traits based on this blog content and the user's responses.
