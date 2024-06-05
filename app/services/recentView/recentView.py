@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def get_member_id_by_email(email: str, db: Session) -> int:
-    query = text("SELECT member_id FROM member WHERE email = :email")
+    query = text("SELECT member_id FROM Member WHERE email = :email")
     result = db.execute(query, {"email": email}).fetchone()
     if result is None:
         raise HTTPException(status_code=404, detail="Member not found")
@@ -36,12 +36,12 @@ def add_recent_post(request: Request, post_id: int, member_email: str, db: Sessi
     try:
         member_id = get_member_id_by_email(member_email, db)
         
-        query = text("SELECT * FROM view WHERE post_id = :post_id AND member_id = :member_id")
+        query = text("SELECT * FROM View WHERE post_id = :post_id AND member_id = :member_id")
         view = db.execute(query, {"post_id": post_id, "member_id": member_id}).fetchone()
 
         if view:
             update_query = text("""
-                UPDATE view 
+                UPDATE View 
                 SET view_count = view_count + 1, updated_time = :updated_time
                 WHERE post_id = :post_id AND member_id = :member_id
             """)
@@ -50,7 +50,7 @@ def add_recent_post(request: Request, post_id: int, member_email: str, db: Sessi
                 "member_id": member_id,
                 "updated_time": datetime.now()
             })
-            logger.info(f"Updated view count for post_id {post_id} and member_id {member_id}")
+            logger.info(f"Updated View count for post_id {post_id} and member_id {member_id}")
         else:
             insert_query = text("""
                 INSERT INTO view (post_id, member_id, view_count, updated_time)
@@ -72,7 +72,7 @@ def add_recent_post(request: Request, post_id: int, member_email: str, db: Sessi
         raise HTTPException(status_code=500, detail=str(e))
 
 def fetch_post_data(post_id: int, db: Session) -> dict:
-    query = text("SELECT * FROM post WHERE post_id = :post_id")
+    query = text("SELECT * FROM Post WHERE post_id = :post_id")
     result = db.execute(query, {"post_id": post_id}).fetchone()
     if result is None:
         raise HTTPException(status_code=404, detail="Post not found")
@@ -84,7 +84,7 @@ def fetch_recent_posts_data(recent_posts: List[int], db: Session) -> List[dict]:
     if not recent_posts:
         return []
     
-    query = text("SELECT * FROM post WHERE post_id IN :recent_posts")
+    query = text("SELECT * FROM Post WHERE post_id IN :recent_posts")
     results = db.execute(query, {"recent_posts": tuple(recent_posts)}).fetchall()
     posts = [dict(row._mapping) for row in results]
     logger.info(f"Fetched recent posts data: {posts}")

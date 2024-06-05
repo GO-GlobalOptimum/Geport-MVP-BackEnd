@@ -4,7 +4,7 @@ from fastapi import HTTPException
 import logging
 
 def get_user_email_from_member_id(db: Session, member_id: int) -> str:
-    query_str = text("SELECT email FROM member WHERE member_id = :member_id")
+    query_str = text("SELECT email FROM Member WHERE member_id = :member_id")
     params = {"member_id": member_id}
 
     result = db.execute(query_str, params).fetchone()
@@ -26,7 +26,7 @@ def get_category_post_counts(db: Session, current_user: dict):
     user_email = current_user["email"]
 
     # 사용자의 member_id를 조회합니다.
-    query_str = text("SELECT member_id FROM member WHERE email = :email")
+    query_str = text("SELECT member_id FROM Member WHERE email = :email")
     params = {"email": user_email}
 
     try:
@@ -41,7 +41,7 @@ def get_category_post_counts(db: Session, current_user: dict):
     member_id = result.member_id
 
     # 사용자가 작성한 포스트의 ID를 조회합니다.
-    query_str = text("SELECT post_id FROM post WHERE member_id = :member_id")
+    query_str = text("SELECT post_id FROM Post WHERE member_id = :member_id")
     params = {"member_id": member_id}
 
     try:
@@ -56,7 +56,7 @@ def get_category_post_counts(db: Session, current_user: dict):
     post_ids = [row.post_id for row in post_ids]
 
     # 모든 카테고리를 조회합니다.
-    query_str = text("SELECT category_id, name FROM category")
+    query_str = text("SELECT category_id, name FROM Category")
     try:
         categories = db.execute(query_str).fetchall()
     except Exception as e:
@@ -66,7 +66,7 @@ def get_category_post_counts(db: Session, current_user: dict):
     # 각 카테고리에 대한 포스트 개수를 조회합니다.
     query_str = text("""
     SELECT category_id, COUNT(*) as post_count
-    FROM category_post
+    FROM Category_post
     WHERE post_id IN :post_ids
     GROUP BY category_id
     """)

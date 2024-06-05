@@ -731,7 +731,7 @@ async def generate_igeport(post_ids: List[int], questions: List[str], db: Sessio
         raise HTTPException(status_code=400, detail="post_ids list is empty")
 
     # Select the member_id based on one of the post_ids
-    query_str = f"SELECT member_id FROM post WHERE post_id = :post_id LIMIT 1"
+    query_str = f"SELECT member_id FROM Post WHERE post_id = :post_id LIMIT 1"
     query = text(query_str)
     params = {"post_id": post_ids[0]}
 
@@ -752,7 +752,7 @@ async def generate_igeport(post_ids: List[int], questions: List[str], db: Sessio
 
     # Retrieve all post contents for the given post_ids
     placeholders = ', '.join([f":post_id_{i}" for i in range(len(post_ids))])
-    query_str = f"SELECT post_content FROM post WHERE post_id IN ({placeholders})"
+    query_str = f"SELECT post_content FROM Post WHERE post_id IN ({placeholders})"
     query = text(query_str)
     params = {f"post_id_{i}": post_id for i, post_id in enumerate(post_ids)}
 
@@ -815,7 +815,7 @@ async def generate_igeport(post_ids: List[int], questions: List[str], db: Sessio
     }
 
 def get_user_email_from_member_id(db: Session, member_id: int) -> str:
-    query_str = f"SELECT email FROM member WHERE member_id = :member_id"
+    query_str = f"SELECT email FROM Member WHERE member_id = :member_id"
     query = text(query_str)
     params = {"member_id": member_id}
 

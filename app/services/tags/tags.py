@@ -51,7 +51,7 @@ def create_prompt():
 def get_post_by_id(post_id: int, db: Session):
     try:
         # 특정 필드만 선택하는 SQL 쿼리
-        query = text("SELECT title, post_id, member_id, post_content FROM post WHERE post_id = :post_id")
+        query = text("SELECT title, post_id, member_id, post_content FROM Post WHERE post_id = :post_id")
         result = db.execute(query, {"post_id": post_id}).fetchone()
         if result is None:
             raise HTTPException(status_code=404, detail="Post not found")
@@ -82,7 +82,7 @@ def generate_tags(post_id: int, db: Session):
     tags_string = ",".join(tags_json['tags'])
 
     # tags 데이터베이스에 저장
-    insert_query = text("INSERT INTO post_tag (post_id, contents, is_user) VALUES (:post_id, :name, :is_user)")
+    insert_query = text("INSERT INTO Post_tag (post_id, contents, is_user) VALUES (:post_id, :name, :is_user)")
     db.execute(insert_query, {"post_id": post_id, "name": tags_string, "is_user": False})
     
     db.commit()

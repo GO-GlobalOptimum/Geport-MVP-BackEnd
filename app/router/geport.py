@@ -101,7 +101,7 @@ async def generate_geport_endpoint_text(request_data: GenerateGeportRequest, db:
     logging.info(f"questions: {questions}")
 
     # post_id 중 하나를 사용하여 member_id 조회
-    query_str = f"SELECT member_id FROM post WHERE post_id = :post_id LIMIT 1"
+    query_str = f"SELECT member_id FROM Post WHERE post_id = :post_id LIMIT 1"
     query = text(query_str)
     params = {"post_id": post_ids[0]}
 

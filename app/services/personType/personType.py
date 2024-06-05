@@ -80,7 +80,7 @@ def get_post_tags_for_recent_posts(db: Session, current_user: User):
         # 해당 사용자의 최근 10개의 post_id를 가져옵니다.
         recent_posts_query = text("""
             SELECT post_id
-            FROM post
+            FROM Post
             WHERE member_id = :user_id
             ORDER BY created_at DESC
             LIMIT 10
@@ -96,7 +96,7 @@ def get_post_tags_for_recent_posts(db: Session, current_user: User):
         # 최근 10개의 post_id에 대한 태그를 가져옵니다
         tags_query = text("""
             SELECT post_id, post_tag_id, contents
-            FROM post_tag
+            FROM Post_tag
             WHERE post_id IN :post_ids AND is_user = 0
         """)
         tags_result = db.execute(tags_query, {"post_ids": tuple(post_ids)}).fetchall()
@@ -220,7 +220,7 @@ def generate_personType(db, current_user):
 
     user_id_query = text("""
             SELECT member_id
-            FROM member
+            FROM Member
             WHERE email = :email
         """)
     user_id_result = db.execute(user_id_query, {"email": current_user.email}).fetchone()
@@ -232,7 +232,7 @@ def generate_personType(db, current_user):
     
 
     # tags 데이터베이스에 저장
-    update_query = text("UPDATE member SET person = :person WHERE member_id = :member_id")
+    update_query = text("UPDATE Member SET person = :person WHERE member_id = :member_id")
     db.execute(update_query, {"person": person_type["result"], "member_id": user_id})  
     db.commit()
 

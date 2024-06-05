@@ -26,7 +26,7 @@ def get_recently_viewed_person_types(db: Session, current_user: dict):
     user_email = current_user["email"]
 
     # 사용자의 member_id를 조회합니다.
-    query_str = text("SELECT member_id FROM member WHERE email = :email")
+    query_str = text("SELECT member_id FROM Member WHERE email = :email")
     params = {"email": user_email}
 
     try:
@@ -41,7 +41,7 @@ def get_recently_viewed_person_types(db: Session, current_user: dict):
     member_id = result.member_id
 
     # 사용자가 최근 본 포스트의 ID를 조회합니다.
-    query_str = text("SELECT post_id FROM view WHERE member_id = :member_id ORDER BY updated_time DESC LIMIT 10")
+    query_str = text("SELECT post_id FROM View WHERE member_id = :member_id ORDER BY updated_time DESC LIMIT 10")
     params = {"member_id": member_id}
 
     try:
@@ -56,7 +56,7 @@ def get_recently_viewed_person_types(db: Session, current_user: dict):
     post_ids = [row.post_id for row in post_ids]
 
     # 포스트 ID를 통해 작성자의 member_id를 조회합니다.
-    query_str = text("SELECT member_id FROM post WHERE post_id IN :post_ids")
+    query_str = text("SELECT member_id FROM Post WHERE post_id IN :post_ids")
     params = {"post_ids": tuple(post_ids)}
 
     try:
@@ -70,7 +70,7 @@ def get_recently_viewed_person_types(db: Session, current_user: dict):
     # 작성자의 member_id를 통해 person 유형을 조회하고 개수를 셉니다.
     query_str = text("""
     SELECT person, COUNT(*) as count
-    FROM member
+    FROM Member
     WHERE member_id IN :member_ids
     GROUP BY person
     ORDER BY count DESC
