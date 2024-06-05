@@ -27,7 +27,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_community.vectorstores import FAISS
 from faiss import IndexFlatL2
 from app.database.models import UserData, UserQuestions
-from app.database.connection import user_baseInfo_collection, get_db, geport_db
+from app.database.connection import user_baseInfo_collection, geport_db
 from typing import List
 
 # Load environment variables
