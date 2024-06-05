@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, Depends
 from sqlalchemy.orm import Session
-from app.services.recentView import add_recent_post, get_recent_posts, fetch_post_data, fetch_recent_posts_data
+from app.services.recentView.recentView import add_recent_post, get_recent_posts, fetch_post_data, fetch_recent_posts_data
 from app.services.auth.auth import get_current_user
 from app.database.connection import get_db
 
