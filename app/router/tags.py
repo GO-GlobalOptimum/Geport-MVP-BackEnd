@@ -1,3 +1,4 @@
+
 # from fastapi import Depends, HTTPException
 # import os
 # from fastapi import APIRouter
@@ -8,6 +9,7 @@
 
 
 # router = APIRouter()
+
 
 # # # SQL 데이터베이스 연결 확인 엔드포인트
 # # @router.get("fastapi/check_sql_connection")
@@ -29,3 +31,4 @@
 # @router.get("/posts/generate/tags/{post_id}")
 # def generate_post_tags(post_id :int, db: Session = Depends(get_db)):
 #     return generate_tags(post_id, db)
+

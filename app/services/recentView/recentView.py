@@ -63,6 +63,7 @@
 #                 "updated_time": datetime.now()
 #             })
 #             logger.info(f"Inserted new view for post_id {post_id} and member_id {member_id}")
+
         
 #         db.commit()
 #         logger.info("Transaction committed")

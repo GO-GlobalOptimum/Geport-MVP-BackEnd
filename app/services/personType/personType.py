@@ -1,3 +1,4 @@
+
 # from sqlalchemy.orm import Session
 # from fastapi import HTTPException
 # from sqlalchemy.sql import text
@@ -188,6 +189,7 @@
 #             )])
 
 
+
 # def generate_personType(db, current_user):
 #     """_summary_
 #         : 사용자의 최근 게시글 10개를 가지고 와서 해당 게시글에 AI가 만든 태그를 통해서
@@ -208,15 +210,19 @@
 
 #     prompt1 = create_prompt().format_prompt(context=tags).to_messages()
 
+
 #     person_type = llm35.invoke(prompt1)
+
 
 
 #      # JSON 응답에서 content 값만 추출
 #     content = person_type.content
 #     print('content : ', content)
+
     
 #     # content 값을 JSON으로 파싱
 #     person_type = json.loads(content.strip())
+
 
 #     user_id_query = text("""
 #             SELECT member_id
@@ -225,8 +231,10 @@
 #         """)
 #     user_id_result = db.execute(user_id_query, {"email": current_user.email}).fetchone()
 
+
 #     if not user_id_result:
 #         raise HTTPException(status_code=404, detail="User not found")
+
 
 #     user_id = user_id_result.member_id
     
@@ -241,5 +249,3 @@
 
 #     return person_type
     
-
-

@@ -46,9 +46,11 @@
 #         Title : {title}
 #         Context: {context}
 
+
 #         ### Output
 #         """
 #         )])
+
 
 # def get_post_by_id(post_id: int, db: Session):
 #     try:
@@ -72,6 +74,7 @@
 #     content = result['post_content']
 #     prompt1 = create_prompt().format_prompt(title=title, context=content).to_messages()
 
+
 #     generate_thumbnail_txt = llm35.invoke(prompt1)
 
 #     # JSON 응답에서 content 값만 추출
@@ -88,5 +91,6 @@
 #     except Exception as e:
 #         db.rollback()
 #         raise HTTPException(status_code=500, detail=str(e))
+
 
 #     return thumbnail_json

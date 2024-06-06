@@ -4,6 +4,7 @@
 # from app.services.auth.auth import get_current_user
 # from app.database.connection import get_db
 
+
 # router = APIRouter()
 
 
@@ -20,6 +21,7 @@
 #     post_data = fetch_post_data(post_id, db)
 #     return post_data
 
+
 # """_summary_
 #     최근에 해당 사용자 (JWT)가 본 게시글들을 불러와준다
 
@@ -31,3 +33,4 @@
 #     recent_posts = get_recent_posts(request)
 #     recent_posts_data = fetch_recent_posts_data(recent_posts, db)
 #     return recent_posts_data
+

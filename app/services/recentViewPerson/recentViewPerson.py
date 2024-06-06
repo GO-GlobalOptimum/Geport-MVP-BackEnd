@@ -1,3 +1,4 @@
+
 # from sqlalchemy.orm import Session
 # from sqlalchemy import text
 # from fastapi import HTTPException
@@ -84,3 +85,4 @@
 #         raise HTTPException(status_code=500, detail="Database query error")
 
 #     return [{"person": row.person, "count": row.count} for row in result]
+

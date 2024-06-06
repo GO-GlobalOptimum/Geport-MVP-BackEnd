@@ -17,6 +17,7 @@ class IgeportResponse(BaseModel):
     igeport_id: str
     result: Dict[str, Any]
 
+
 router = APIRouter()
 
 @router.post("/igeport/generate/", response_model=IgeportResponse)
@@ -27,6 +28,7 @@ async def generate_igeport_endpoint(
     igeport_db = Depends(get_igeport_db),
     current_user: dict = Depends(get_current_user)
 ):
+
     """
     Summary: igeport를 생성하는 API입니다.
 
@@ -38,10 +40,12 @@ async def generate_igeport_endpoint(
     logging.info(f"post_ids: {post_ids}")
     logging.info(f"questions: {questions}")
 
+
     # post_id 중 하나를 사용하여 member_id 조회
     query_str = "SELECT member_id FROM Post WHERE post_id = :post_id LIMIT 1"
     query = text(query_str)
     params = {"post_id": post_ids[0]}
+
 
     try:
         result = read_db.execute(query, params).fetchone()
@@ -72,4 +76,5 @@ async def generate_igeport_endpoint(
 @router.get("/igeport/database/list")
 def get_igeport_list(igeport_db = Depends(get_igeport_db)):
     result = read_list_service(igeport_db)
+
     return result

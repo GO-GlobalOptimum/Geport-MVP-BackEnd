@@ -6,12 +6,14 @@
 # from pydantic import BaseModel
 # from typing import List, Dict, Any
 
+
 # router = APIRouter()
 
 # class CategoryPostCount(BaseModel):
 #     category_id: int
 #     category_name: str
 #     post_count: int
+
 
 # @router.get("/categories/post-counts/", response_model=List[CategoryPostCount])
 # async def get_category_post_counts_endpoint(db: Session = Depends(get_db), current_user: dict = Depends(get_current_user)):

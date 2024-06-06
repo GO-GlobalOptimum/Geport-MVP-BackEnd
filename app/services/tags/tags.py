@@ -1,3 +1,4 @@
+
 # from sqlalchemy.orm import Session
 # from sqlalchemy import text
 # from fastapi import HTTPException
@@ -15,6 +16,7 @@
 # logging.basicConfig(level=logging.WARNING)
 # env_path = os.path.join(os.path.dirname(__file__), '../../.env')
 # load_dotenv(dotenv_path=env_path)
+
 
 # # LLM 설정
 # OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -62,6 +64,7 @@
 #     except Exception as e:
 #         raise HTTPException(status_code=500, detail=str(e))
 
+
 # def generate_tags(post_id: int, db: Session):
 #     result = get_post_by_id(post_id, db)
 #     title = result['title']
@@ -69,6 +72,7 @@
 #     post_id = result['post_id']
 #     member_id = result['member_id']
 #     prompt1 = create_prompt().format_prompt(title=title, context=content).to_messages()
+
 
 #     generated_tags = llm35.invoke(prompt1)
 
@@ -81,6 +85,7 @@
 #     # 태그들을 하나의 문자열로 결합
 #     tags_string = ",".join(tags_json['tags'])
 
+
 #     # tags 데이터베이스에 저장
 #     insert_query = text("INSERT INTO Post_tag (post_id, contents, is_user) VALUES (:post_id, :name, :is_user)")
 #     db.execute(insert_query, {"post_id": post_id, "name": tags_string, "is_user": False})
@@ -88,4 +93,5 @@
 #     db.commit()
 
 #     return tags_json
+
 

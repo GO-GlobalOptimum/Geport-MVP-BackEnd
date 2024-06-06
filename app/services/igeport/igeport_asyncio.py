@@ -621,6 +621,7 @@ def generate_igeport_id(member_id: int) -> str:
     hash_hex = hash_object.hexdigest()
     return hash_hex[:10]
 
+
 async def generate_igeport(
     post_ids: List[int], 
     questions: List[str], 
@@ -628,6 +629,7 @@ async def generate_igeport(
     write_db: Session = Depends(get_write_db), 
     igeport_db = Depends(get_igeport_db),
 ):
+
     logging.info(f"Post IDs: {post_ids}")
     logging.info(f"Questions: {questions}")
 
@@ -650,6 +652,7 @@ async def generate_igeport(
         raise HTTPException(status_code=404, detail="Post not found for the given post_id")
 
     member_id = result.member_id
+
 
     # Retrieve all post contents for the given post_ids
     placeholders = ', '.join([f":post_id_{i}" for i in range(len(post_ids))])
@@ -725,3 +728,10 @@ def get_user_email_from_member_id(db: Session, member_id: int) -> str:
     if result:
         return result.email
     raise HTTPException(status_code=404, detail="User email not found for the given member_id")
+
+def read_list_service():
+    users = list(igeport_db.find({}, {'_id': False}))
+    if users :
+        return users
+    else :
+        raise HTTPException(status_code=404, detail="Users not found")
