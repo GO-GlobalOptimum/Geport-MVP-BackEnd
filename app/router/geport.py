@@ -1,10 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from pydantic import BaseModel
 from typing import List, Dict
 import logging
 from app.services.geport.geport_asyncio import read_list_service, generate_geport as generate_geport
-
 from app.database.connection import get_read_db, get_write_db, get_geport_db
 from app.services.auth.auth import get_current_user
 
@@ -32,9 +32,6 @@ async def generate_geport_endpoint(
 
     Parameters: post_ids, user_questions
     """
-
-    if mongo_db is None:
-        raise ValueError("Mongo DB collection is None")
     post_ids = request_data.post_ids
     questions = request_data.questions
 
