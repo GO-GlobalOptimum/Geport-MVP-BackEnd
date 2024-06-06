@@ -73,7 +73,7 @@ from pydantic import BaseModel
 from typing import List, Dict
 import logging
 from app.services.geport.geport_asyncio import read_list_service, generate_geport as generate_geport
-from app.database.connection import get_read_read_db
+from app.database.connection import get_read_db
 from app.services.auth.auth import get_current_user
 
 class GenerateGeportRequest(BaseModel):
@@ -88,7 +88,7 @@ class GeportResponse(BaseModel):
 router = APIRouter()
 
 @router.post("/geport/generate/", response_model=GeportResponse)
-async def generate_geport_endpoint_text(request_data: GenerateGeportRequest, read_db: Session = Depends(get_read_read_db), current_user: dict = Depends(get_current_user)):
+async def generate_geport_endpoint_text(request_data: GenerateGeportRequest, read_db: Session = Depends(get_read_db), current_user: dict = Depends(get_current_user)):
     """
     Summary: geport를 생성하는 API 입니다.
 

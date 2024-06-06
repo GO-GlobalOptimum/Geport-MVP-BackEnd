@@ -401,10 +401,10 @@ async def llm_invoke_async(prompt):
 
 
 
-async def check_get_read_gee_connection(get_read_gee: Session):
+async def check_get_read_db_connection(get_read_db: Session):
     try:
         # Simple query to check database connection
-        get_read_gee.execute(text("SELECT 1"))
+        get_read_db.execute(text("SELECT 1"))
     except Exception as e:
         logging.error(f"Database connection error: {str(e)}")
         raise HTTPException(status_code=500, detail="Database connection error")
@@ -448,7 +448,7 @@ from typing import List
 import asyncio
 import logging
 
-async def generate_geport(post_ids: List[int], questions: List[str], get_read_gee: Session):
+async def generate_geport(post_ids: List[int], questions: List[str], get_read_db: Session):
     logging.info(f"Post IDs: {post_ids}")
     logging.info(f"Questions: {questions}")
 
@@ -462,7 +462,7 @@ async def generate_geport(post_ids: List[int], questions: List[str], get_read_ge
     params = {"post_id": post_ids[0]}
 
     try:
-        result = get_read_gee.execute(query, params).fetchone()
+        result = get_read_db.execute(query, params).fetchone()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
         raise HTTPException(status_code=500, detail="Database query error")
@@ -479,7 +479,7 @@ async def generate_geport(post_ids: List[int], questions: List[str], get_read_ge
     params = {f"post_id_{i}": post_id for i, post_id in enumerate(post_ids)}
 
     try:
-        result = get_read_gee.execute(query, params).fetchall()
+        result = get_read_db.execute(query, params).fetchall()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
         raise HTTPException(status_code=500, detail="Database query error")
@@ -549,7 +549,7 @@ async def generate_geport(post_ids: List[int], questions: List[str], get_read_ge
     # geport_id 생성
     geport_id = generate_geport_id(member_id)
 
-    # 결과를 Mongoget_read_gee에 저장
+    # 결과를 Mongoget_read_db에 저장
     get_geport_db.insert_one({
         "geport_id": geport_id,
         "member_id": member_id,
