@@ -27,7 +27,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_community.vectorstores import FAISS
 from faiss import IndexFlatL2
 from app.database.models import UserData, UserQuestions
-from app.database.connection import user_baseInfo_collection, get_geport_db, geport_db
+from app.database.connection import user_baseInfo_collection, get_geport_db
 from typing import List
 
 # Load environment variables
@@ -93,6 +93,11 @@ def read_user_service(encrypted_id: str):
         raise HTTPException(status_code=404, detail="User not found")
     
 
+# async def read_list_service():
+#     users = []
+#     async for user in user_baseInfo_collection.find({}, {'_id': False}):
+#         users.append(user)
+#     return users
 
 
 def read_user_blog_links(encrypted_id: str):
@@ -395,10 +400,11 @@ async def llm_invoke_async(prompt):
     return response
 
 
-async def check_db_connection(db: Session):
+
+async def check_get_read_gee_connection(get_read_gee: Session):
     try:
         # Simple query to check database connection
-        db.execute(text("SELECT 1"))
+        get_read_gee.execute(text("SELECT 1"))
     except Exception as e:
         logging.error(f"Database connection error: {str(e)}")
         raise HTTPException(status_code=500, detail="Database connection error")
@@ -413,14 +419,25 @@ def read_list_service():
 
 import hashlib
 import datetime
-
 def generate_geport_id(member_id: int) -> str:
+    # /***************************************************************************/#
+    '''
+        geport_id를 member_id + 현재 날짜와 시간으로 암호화 해주는 함수이다. 
+        과정 :
+            1. member_id와 현재 날짜와 시간을 가져온다.
+            2. 암호화 값을 만들어서 return 해준다.
+    '''
+    # /***************************************************************************/#
+    # 현재 날짜와 시간 가져오기
     current_datetime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    # member_id와 현재 날짜와 시간을 문자열로 결합
     combined_str = f"{member_id}-{current_datetime}"
+    # SHA256 해시 생성
     hash_object = hashlib.sha256(combined_str.encode())
+    # 해시 값을 16진수 문자열로 변환
     hash_hex = hash_object.hexdigest()
+    # 필요에 따라 해시 값을 줄이기 (예: 앞 10자리만 사용)
     return hash_hex[:10]
-
 
 
 
@@ -430,12 +447,8 @@ from sqlalchemy import text
 from typing import List
 import asyncio
 import logging
-from app.database.connection import get_read_db, get_write_db, get_geport_db
 
-
-# post_ids, questions, read_db, write_db, geport_db, current_user)
-async def generate_geport(post_ids: List[int], questions: List[str], read_db: Session = Depends(get_read_db),write_db: Session = Depends(get_write_db),geport_db = Depends(get_geport_db),):
-
+async def generate_geport(post_ids: List[int], questions: List[str], get_read_gee: Session):
     logging.info(f"Post IDs: {post_ids}")
     logging.info(f"Questions: {questions}")
 
@@ -449,7 +462,7 @@ async def generate_geport(post_ids: List[int], questions: List[str], read_db: Se
     params = {"post_id": post_ids[0]}
 
     try:
-        result = read_db.execute(query, params).fetchone()
+        result = get_read_gee.execute(query, params).fetchone()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
         raise HTTPException(status_code=500, detail="Database query error")
@@ -459,10 +472,6 @@ async def generate_geport(post_ids: List[int], questions: List[str], read_db: Se
 
     member_id = result.member_id
 
-    # Ensure the member_id matches the current user
-    if current_user["email"] != get_user_email_from_member_id(read_db, member_id):
-        raise HTTPException(status_code=403, detail="You are not authorized to access this resource")
-
     # Retrieve all post contents for the given post_ids
     placeholders = ', '.join([f":post_id_{i}" for i in range(len(post_ids))])
     query_str = f"SELECT post_content FROM Post WHERE post_id IN ({placeholders})"
@@ -470,7 +479,7 @@ async def generate_geport(post_ids: List[int], questions: List[str], read_db: Se
     params = {f"post_id_{i}": post_id for i, post_id in enumerate(post_ids)}
 
     try:
-        result = read_db.execute(query, params).fetchall()
+        result = get_read_gee.execute(query, params).fetchall()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
         raise HTTPException(status_code=500, detail="Database query error")
@@ -540,8 +549,8 @@ async def generate_geport(post_ids: List[int], questions: List[str], read_db: Se
     # geport_id 생성
     geport_id = generate_geport_id(member_id)
 
-    # 결과를 MongoDB에 저장
-    write_db.insert_one({
+    # 결과를 Mongoget_read_gee에 저장
+    get_geport_db.insert_one({
         "geport_id": geport_id,
         "member_id": member_id,
         "result": result
@@ -552,19 +561,3 @@ async def generate_geport(post_ids: List[int], questions: List[str], read_db: Se
         "geport_id": geport_id,
         "result": result
     }
-
-def get_user_email_from_member_id(db: Session, member_id: int) -> str:
-    query_str = f"SELECT email FROM Member WHERE member_id = :member_id"
-    query = text(query_str)
-    params = {"member_id": member_id}
-
-    result = db.execute(query, params).fetchone()
-    if result:
-        return result.email
-    raise HTTPException(status_code=404, detail="User email not found for the given member_id")
-
-def read_list_service():
-    users = []
-    for user in geport_db.find({}, {'_id': False}):
-        users.append(user)
-    return users
