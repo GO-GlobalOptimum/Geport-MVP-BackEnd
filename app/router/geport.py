@@ -6,7 +6,6 @@ from typing import List, Dict
 import logging
 from app.services.geport.geport_asyncio import read_list_service, generate_geport as generate_geport
 from app.database.connection import get_read_db, get_geport_db
-from app.services.auth.auth import get_current_user
 
 class GenerateGeportRequest(BaseModel):
     post_ids: List[int]
@@ -23,8 +22,7 @@ router = APIRouter()
 async def generate_geport_endpoint(
     request_data: GenerateGeportRequest,
     read_db: Session = Depends(get_read_db),
-    geport_db = Depends(get_geport_db),
-    current_user: dict = Depends(get_current_user)
+    geport_db = Depends(get_geport_db)
 ):
     """
     Summary: geport를 생성하는 API입니다.
@@ -55,10 +53,6 @@ async def generate_geport_endpoint(
     member_id = result.member_id
 
     logging.info(f"member_id: {member_id}")
-
-    # current_user의 member_id와 조회한 member_id 비교
-    if current_user.get("member_id") != member_id:
-        raise HTTPException(status_code=403, detail="You are not authorized to generate this report")
 
     # Geport 생성 함수를 소환한다
     result = await generate_geport(post_ids, questions, read_db, geport_db)

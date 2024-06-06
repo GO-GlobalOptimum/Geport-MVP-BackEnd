@@ -410,11 +410,12 @@ async def check_get_read_db_connection(get_read_db: Session):
         raise HTTPException(status_code=500, detail="Database connection error")
     
 
-def read_list_service():
+def read_list_service(geport_db):
     users = []
-    for user in get_geport_db.find({}, {'_id': False}):
+    for user in geport_db.find({}, {'_id': False}):
         users.append(user)
     return users
+
 
 
 import hashlib
@@ -455,6 +456,8 @@ from typing import List
 import asyncio
 import logging
 from app.database.connection import get_geport_db
+
+
 async def generate_geport(post_ids: List[int], questions: List[str], get_read_db: Session, geport_db):
     logging.info(f"Post IDs: {post_ids}")
     logging.info(f"Questions: {questions}")
@@ -472,7 +475,7 @@ async def generate_geport(post_ids: List[int], questions: List[str], get_read_db
         result = get_read_db.execute(query, params).fetchone()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
-        raise HTTPException(status_code=500, detail="Database query error")
+        raise HTTPException(status_code=500, detail=f"Database query error: {str(e)}")
 
     if not result:
         raise HTTPException(status_code=404, detail="Post not found for the given post_id")
@@ -489,12 +492,12 @@ async def generate_geport(post_ids: List[int], questions: List[str], get_read_db
         result = get_read_db.execute(query, params).fetchall()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
-        raise HTTPException(status_code=500, detail="Database query error")
+        raise HTTPException(status_code=500, detail=f"Database query error: {str(e)}")
 
     if not result:
         raise HTTPException(status_code=404, detail="Posts not found for the given post_ids")
 
-    post_contents = [row[0] for row in result]  # Assuming the first column is post_content
+    post_contents = [row[0] for row in result]  # Assuming the first column is postContent
 
     # Log the post contents
     logging.info(f"Post contents: {post_contents}")
@@ -523,12 +526,13 @@ async def generate_geport(post_ids: List[int], questions: List[str], get_read_db
         llm_invoke_async(prompt2)
     )
     answer_1 = answer_1.content
-    #좌우명 분석에 대한 분석
+
+    # 좌우명 분석에 대한 분석
     updated_answer2_prompt = create_prompt(3).format_prompt(answer_2=answer_2, answer2=questions[2], answer3=questions[3]).to_messages()
     answer_2 = llm35.invoke(updated_answer2_prompt)
     answer_2 = answer_2.content
 
-    #제 인생 변곡점은 이겁니다.
+    # 제 인생 변곡점은 이겁니다.
     updated_answer3_prompt = create_prompt(4).format_prompt(answer2=questions[2], answer3=questions[3], answer4=questions[4], answer_2=answer_2).to_messages()
     answer_3 = llm35.invoke(updated_answer3_prompt)
     answer_3 = answer_3.content
@@ -557,11 +561,15 @@ async def generate_geport(post_ids: List[int], questions: List[str], get_read_db
     geport_id = generate_geport_id(member_id)
 
     # 결과를 MongoDB에 저장
-    geport_db.insert_one({
-        "geport_id": geport_id,
-        "member_id": member_id,
-        "result": result
-    })
+    try:
+        geport_db.insert_one({
+            "geport_id": geport_id,
+            "member_id": member_id,
+            "result": result
+        })
+    except Exception as e:
+        logging.error(f"Error inserting into MongoDB: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error inserting into MongoDB: {str(e)}")
 
     return {
         "member_id": member_id,
