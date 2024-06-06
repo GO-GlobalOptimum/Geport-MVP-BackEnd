@@ -1,5 +1,5 @@
 from fastapi.responses import JSONResponse
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status,Depends
 import hashlib
 from app.database.models import UserData, UserQuestions
 from app.database.connection import igeport_user_baseInfo_collection, igeport_db
@@ -610,108 +610,7 @@ def read_list_service():
 
 import hashlib
 import datetime
-# def generate_igeport_id(member_id: int) -> str:
-#     # /***************************************************************************/#
-#     '''
-#         geport_id를 member_id + 현재 날짜와 시간으로 암호화 해주는 함수이다. 
-#         과정 :
-#             1. member_id와 현재 날짜와 시간을 가져온다.
-#             2. 암호화 값을 만들어서 return 해준다.
-#     '''
-#     # /***************************************************************************/#
-#     # 현재 날짜와 시간 가져오기
-#     current_datetime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-#     # member_id와 현재 날짜와 시간을 문자열로 결합
-#     combined_str = f"{member_id}-{current_datetime}"
-#     # SHA256 해시 생성
-#     hash_object = hashlib.sha256(combined_str.encode())
-#     # 해시 값을 16진수 문자열로 변환
-#     hash_hex = hash_object.hexdigest()
-#     # 필요에 따라 해시 값을 줄이기 (예: 앞 10자리만 사용)
-#     return hash_hex[:10]
-
-
-
-# import hashlib
-# import datetime
-
-# def generate_igeport_id(member_id: int) -> str:
-#     current_datetime = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-#     combined_str = f"{member_id}-{current_datetime}"
-#     hash_object = hashlib.sha256(combined_str.encode())
-#     hash_hex = hash_object.hexdigest()
-#     return hash_hex[:10]
-
-# async def generate_igeport(member_id, post_ids, questions, db):
-#     logging.info(f"member_id: {member_id}")
-#     logging.info(f"post_ids: {post_ids}")
-#     logging.info(f"questions: {questions}")
-
-#     if not post_ids:
-#         raise HTTPException(status_code=400, detail="post_ids list is empty")
-
-#     placeholders = ', '.join([f":post_id_{i}" for i in range(len(post_ids))])
-#     query_str = f"SELECT post_content FROM post WHERE post_id IN ({placeholders})"
-#     query = text(query_str)
-#     params = {f"post_id_{i}": post_id for i, post_id in enumerate(post_ids)}
-
-#     try:
-#         result = db.execute(query, params).fetchall()
-#     except Exception as e:
-#         logging.error(f"Error executing query: {str(e)}")
-#         raise HTTPException(status_code=500, detail="Database query error")
-
-#     if not result:
-#         raise HTTPException(status_code=404, detail="Posts not found for the given post_ids")
-
-#     blog_docs = [row[0] for row in result]
-#     print("This is blog_docs : ", blog_docs)
-
-#     user_answers = questions
-
-#     start_time = time.time()
-#     blogs_initals, blog_summarys = await asyncio.gather(
-#         get_inital(blog_docs),
-#         get_summary(blog_docs)
-#     )
-
-#     merged_data = merge_blog_data(blog_summarys, blogs_initals)
-
-#     blogs_emotionsWave, blogs_emotionSos, blogs_happy, big_5 = await asyncio.gather(
-#         get_emotionWave(merged_data),
-#         get_emotionSos(merged_data),
-#         get_happyKeyword(merged_data),
-#         get_big5(user_answers, merged_data)
-#     )
-
-#     blogs_finalIgeport = get_finalIgeport(blogs_emotionsWave, big_5, blogs_happy, blogs_initals)
-
-#     result = {
-#         "blogs_summary": json.loads(blog_summarys),
-#         "blogs_emotionWave": json.loads(blogs_emotionsWave),
-#         "blogs_emotionSos": json.loads(blogs_emotionSos),
-#         "blogs_happyKeyword": json.loads(blogs_happy),
-#         "blogs_emotionBig5": json.loads(big_5),
-#         'blogs_finalReport': json.loads(blogs_finalIgeport)
-#     }
-
-#     print('iGeport 생성 시간 : ', time.time() - start_time)
-
-#     # geport_id 생성
-#     igeport_id = generate_igeport_id(member_id)
-
-#     # 결과를 MongoDB에 저장
-#     igeport_db.insert_one({
-#         "igeport_id": igeport_id,
-#         "member_id": member_id,
-#         "result": result
-#     })
-
-#     return {
-#         "member_id": member_id,
-#         "igeport_id": igeport_id,
-#         "result": result
-#     }
+from app.database.connection import get_read_db, get_write_db, get_igeport_db
 
 
 
@@ -722,7 +621,13 @@ def generate_igeport_id(member_id: int) -> str:
     hash_hex = hash_object.hexdigest()
     return hash_hex[:10]
 
-async def generate_igeport(post_ids: List[int], questions: List[str], db: Session, current_user: dict):
+async def generate_igeport(
+    post_ids: List[int], 
+    questions: List[str], 
+    read_db: Session = Depends(get_read_db), 
+    write_db: Session = Depends(get_write_db), 
+    igeport_db = Depends(get_igeport_db),
+):
     logging.info(f"Post IDs: {post_ids}")
     logging.info(f"Questions: {questions}")
 
@@ -736,7 +641,7 @@ async def generate_igeport(post_ids: List[int], questions: List[str], db: Sessio
     params = {"post_id": post_ids[0]}
 
     try:
-        result = db.execute(query, params).fetchone()
+        result = read_db.execute(query, params).fetchone()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
         raise HTTPException(status_code=500, detail="Database query error")
@@ -746,10 +651,6 @@ async def generate_igeport(post_ids: List[int], questions: List[str], db: Sessio
 
     member_id = result.member_id
 
-    # Ensure the member_id matches the current user
-    if current_user["email"] != get_user_email_from_member_id(db, member_id):
-        raise HTTPException(status_code=403, detail="You are not authorized to access this resource")
-
     # Retrieve all post contents for the given post_ids
     placeholders = ', '.join([f":post_id_{i}" for i in range(len(post_ids))])
     query_str = f"SELECT post_content FROM Post WHERE post_id IN ({placeholders})"
@@ -757,7 +658,7 @@ async def generate_igeport(post_ids: List[int], questions: List[str], db: Sessio
     params = {f"post_id_{i}": post_id for i, post_id in enumerate(post_ids)}
 
     try:
-        result = db.execute(query, params).fetchall()
+        result = read_db.execute(query, params).fetchall()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
         raise HTTPException(status_code=500, detail="Database query error")
@@ -798,7 +699,7 @@ async def generate_igeport(post_ids: List[int], questions: List[str], db: Sessio
 
     print('iGeport 생성 시간 : ', time.time() - start_time)
 
-    # geport_id 생성
+    # igeport_id 생성
     igeport_id = generate_igeport_id(member_id)
 
     # 결과를 MongoDB에 저장
@@ -813,6 +714,7 @@ async def generate_igeport(post_ids: List[int], questions: List[str], db: Sessio
         "igeport_id": igeport_id,
         "result": result
     }
+
 
 def get_user_email_from_member_id(db: Session, member_id: int) -> str:
     query_str = f"SELECT email FROM Member WHERE member_id = :member_id"
