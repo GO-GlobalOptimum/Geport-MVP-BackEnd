@@ -27,7 +27,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_community.vectorstores import FAISS
 from faiss import IndexFlatL2
 from app.database.models import UserData, UserQuestions
-from app.database.connection import user_baseInfo_collection, get_geport_db
+from app.database.connection import user_baseInfo_collection, get_geport_db, geport_db
 from typing import List
 
 # Load environment variables
@@ -564,8 +564,7 @@ def get_user_email_from_member_id(db: Session, member_id: int) -> str:
     raise HTTPException(status_code=404, detail="User email not found for the given member_id")
 
 def read_list_service():
-    users = list(get_geport_db.find({}, {'_id': False}))
-    if users :
-        return users
-    else :
-        raise HTTPException(status_code=404, detail="Users not found")
+    users = []
+    for user in geport_db.find({}, {'_id': False}):
+        users.append(user)
+    return users

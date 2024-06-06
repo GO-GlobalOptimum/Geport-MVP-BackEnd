@@ -57,15 +57,15 @@ async def generate_geport_endpoint(
 
     logging.info(f"member_id: {member_id}")
 
-    # current_user의 member_id와 조회한 member_id 비교
-    if current_user.get("member_id") != member_id:
-        raise HTTPException(status_code=403, detail="You are not authorized to generate this report")
+    # # current_user의 member_id와 조회한 member_id 비교
+    # if current_user.get("member_id") != member_id:
+    #     raise HTTPException(status_code=403, detail="You are not authorized to generate this report")
 
     # Geport 생성 함수를 소환한다( post_id, 질문, SQL 읽기, SQL 쓰기, MongoDB, 현재 사용자 정보 )
     result = await generate_geport(post_ids, questions, read_db, write_db, geport_db, current_user)
     return result
 
 @router.get("/geport/database/list")
-def get_geport_list(geport_db = Depends(get_geport_db)):
-    result = read_list_service(geport_db)
+def get_geport_list():
+    result = read_list_service()
     return result
