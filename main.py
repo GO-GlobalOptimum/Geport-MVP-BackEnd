@@ -12,7 +12,7 @@ load_dotenv()
 
 # 라우터 임포트
 from app.router.geport import router as geport_router
-from app.router.igeport import router as igeport_router
+# from app.router.igeport import router as igeport_router
 # from app.router.tags import router as tags_router
 # from app.router.thumbnail import router as thumbnail_router
 # from app.router.recentView import router as recentView_router
@@ -28,7 +28,7 @@ app.add_middleware(SessionMiddleware, secret_key='your_secret_key')
 
 # 라우터 추가
 app.include_router(geport_router)
-app.include_router(igeport_router)
+# app.include_router(igeport_router)
 # app.include_router(tags_router)
 # app.include_router(thumbnail_router)
 # app.include_router(recentView_router)
