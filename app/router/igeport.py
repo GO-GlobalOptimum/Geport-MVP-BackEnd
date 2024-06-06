@@ -5,7 +5,7 @@
 # from typing import List, Dict, Any
 # import logging
 # from app.services.igeport.igeport_asyncio import read_list_service, generate_igeport as generate_igeport_function
-# from app.database.connection import get_read_db, get_write_db, get_igeport_db
+# from app.database.connection import get_read_db, get_igeport_db
 # from app.services.auth.auth import get_current_user
 
 # class GenerateIgeportRequest(BaseModel):
@@ -24,7 +24,6 @@
 # async def generate_igeport_endpoint(
 #     request_data: GenerateIgeportRequest,
 #     read_db: Session = Depends(get_read_db),
-#     write_db: Session = Depends(get_write_db),
 #     igeport_db = Depends(get_igeport_db),
 #     current_user: dict = Depends(get_current_user)
 # ):
@@ -66,7 +65,7 @@
 #     #     raise HTTPException(status_code=403, detail="You are not authorized to generate this report")
 
 #     # Igeport 생성 함수를 소환한다( post_id, 질문, SQL 읽기, SQL 쓰기, MongoDB, 현재 사용자 정보 )
-#     result = await generate_igeport_function(post_ids, questions, read_db, write_db, igeport_db)
+#     result = await generate_igeport_function(post_ids, questions, read_db, igeport_db)
 #     return IgeportResponse(
 #         member_id=result['member_id'],
 #         igeport_id=result['igeport_id'],

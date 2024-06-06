@@ -1,3 +1,15 @@
+
+from fastapi import APIRouter, HTTPException, status, Request, Depends
+from app.database.models import UserData, UserQuestions
+from app.services.geport.geport_asyncio import read_list_service, generate_geport as generate_geport
+from app.database.connection import get_read_read_db
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import List, Dict
+from sqlalchemy import text
+import logging
+
+
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -5,7 +17,8 @@ from pydantic import BaseModel
 from typing import List, Dict
 import logging
 from app.services.geport.geport_asyncio import read_list_service, generate_geport as generate_geport
-from app.database.connection import get_read_db, get_geport_db
+from app.database.connection import get_read_read_db
+from app.services.auth.auth import get_current_user
 
 class GenerateGeportRequest(BaseModel):
     post_ids: List[int]
@@ -19,13 +32,9 @@ class GeportResponse(BaseModel):
 router = APIRouter()
 
 @router.post("/geport/generate/", response_model=GeportResponse)
-async def generate_geport_endpoint(
-    request_data: GenerateGeportRequest,
-    read_db: Session = Depends(get_read_db),
-    geport_db = Depends(get_geport_db)
-):
+async def generate_geport_endpoint_text(request_data: GenerateGeportRequest, read_db: Session = Depends(get_read_read_db), current_user: dict = Depends(get_current_user)):
     """
-    Summary: geport를 생성하는 API입니다.
+    Summary: geport를 생성하는 API 입니다.
 
     Parameters: post_ids, user_questions
     """
@@ -36,7 +45,7 @@ async def generate_geport_endpoint(
     logging.info(f"questions: {questions}")
 
     # post_id 중 하나를 사용하여 member_id 조회
-    query_str = "SELECT member_id FROM Post WHERE post_id = :post_id LIMIT 1"
+    query_str = f"SELECT member_id FROM Post WHERE post_id = :post_id LIMIT 1"
     query = text(query_str)
     params = {"post_id": post_ids[0]}
 
@@ -49,16 +58,14 @@ async def generate_geport_endpoint(
     if not result:
         raise HTTPException(status_code=404, detail="Post not found for the given post_id")
 
-    # user가 보낸 post_id를 통해서 member_id를 가지고 온다.
     member_id = result.member_id
 
     logging.info(f"member_id: {member_id}")
 
-    # Geport 생성 함수를 소환한다
-    result = await generate_geport(post_ids, questions, read_db, geport_db)
+    result = await generate_geport(post_ids, questions, read_db)
     return result
 
 @router.get("/geport/database/list")
-def get_geport_list(geport_db = Depends(get_geport_db)):
-    result = read_list_service(geport_db)
+def get_geport_list():
+    result = read_list_service()
     return result

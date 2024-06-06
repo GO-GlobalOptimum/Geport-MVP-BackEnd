@@ -5,17 +5,15 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 
-# MongoDB 설정
 mongodb_url = os.getenv("MONGODB_URL")
-if not mongodb_url:
-    raise ValueError("MONGODB_URL 환경 변수를 설정해야 합니다.")
-    
-mongo_client = MongoClient(mongodb_url)
-geport_db = mongo_client["geport_db"]
-igeport_db = mongo_client["igeport_db"]
+client = MongoClient(mongodb_url)
+db = client["admin"]
 
-user_baseInfo_collection = geport_db["users_info"]
-igeport_user_baseInfo_collection = igeport_db['igeport_users_info']
+user_baseInfo_collection = db["users_info"]
+igeport_user_baseInfo_collection = db['igeport_users_info']
+geport_db = db['geport_db']
+igeport_db = db['igeport_db']
+
 
 # 환경 변수에서 데이터베이스 연결 정보 가져오기 URL 수정
 DB_URL_READ = os.environ.get('MYSQL_URL_READ')
@@ -50,11 +48,3 @@ def get_write_db():
         yield db
     finally:
         db.close()
-
-# MongoDB geport_db 컬렉션 반환 함수
-def get_geport_db():
-    return geport_db
-
-# MongoDB igeport_db 컬렉션 반환 함수
-def get_igeport_db():
-    return igeport_db

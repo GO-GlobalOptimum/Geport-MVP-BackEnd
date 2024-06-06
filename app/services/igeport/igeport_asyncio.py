@@ -626,7 +626,6 @@
 #     post_ids: List[int], 
 #     questions: List[str], 
 #     read_db: Session = Depends(get_read_db), 
-#     write_db: Session = Depends(get_write_db), 
 #     igeport_db = Depends(get_igeport_db),
 # ):
 
@@ -729,7 +728,8 @@
 #         return result.email
 #     raise HTTPException(status_code=404, detail="User email not found for the given member_id")
 
-# def read_list_service():
+
+# def read_list_service(igeport_db):
 #     users = list(igeport_db.find({}, {'_id': False}))
 #     if users :
 #         return users
