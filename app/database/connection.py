@@ -22,7 +22,7 @@ igeport_db = db['igeport_db']
 # AZURE_SQL_SERVER = os.getenv('AZURE_SQL_SERVER')
 # AZURE_SQL_DATABASE = os.getenv('AZURE_SQL_DATABASE')
 
-DB_URL = os.environ.get('MYSQL_URL')
+DB_URL = os.environ.get('MYSQL_URL_WRITE')
 # DB_URL = f'mysql+pymysql://{AZURE_SQL_USERNAME}:{AZURE_SQL_PASSWORD}@{AZURE_SQL_SERVER}:3306/{AZURE_SQL_DATABASE}'
 
 # SQLAlchemy 엔진 생성

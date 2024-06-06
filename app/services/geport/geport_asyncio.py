@@ -660,7 +660,7 @@ async def generate_geport(post_ids: List[int], questions: List[str], db: Session
 
     # Retrieve all post contents for the given post_ids
     placeholders = ', '.join([f":post_id_{i}" for i in range(len(post_ids))])
-    query_str = f"SELECT post_content FROM Post WHERE post_id IN ({placeholders})"
+    query_str = f"SELECT postContent FROM Post WHERE post_id IN ({placeholders})"
     query = text(query_str)
     params = {f"post_id_{i}": post_id for i, post_id in enumerate(post_ids)}
 
