@@ -455,8 +455,7 @@ from typing import List
 import asyncio
 import logging
 from app.database.connection import get_geport_db
-
-async def generate_geport(post_ids: List[int], questions: List[str], read_db: Session, geport_db):
+async def generate_geport(post_ids: List[int], questions: List[str], get_read_db: Session, geport_db):
     logging.info(f"Post IDs: {post_ids}")
     logging.info(f"Questions: {questions}")
 
@@ -465,12 +464,12 @@ async def generate_geport(post_ids: List[int], questions: List[str], read_db: Se
         raise HTTPException(status_code=400, detail="post_ids list is empty")
 
     # Select the member_id based on one of the post_ids
-    query_str = "SELECT member_id FROM Post WHERE post_id = :post_id LIMIT 1"
+    query_str = f"SELECT member_id FROM Post WHERE post_id = :post_id LIMIT 1"
     query = text(query_str)
     params = {"post_id": post_ids[0]}
 
     try:
-        result = read_db.execute(query, params).fetchone()
+        result = get_read_db.execute(query, params).fetchone()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
         raise HTTPException(status_code=500, detail="Database query error")
@@ -487,7 +486,7 @@ async def generate_geport(post_ids: List[int], questions: List[str], read_db: Se
     params = {f"post_id_{i}": post_id for i, post_id in enumerate(post_ids)}
 
     try:
-        result = read_db.execute(query, params).fetchall()
+        result = get_read_db.execute(query, params).fetchall()
     except Exception as e:
         logging.error(f"Error executing query: {str(e)}")
         raise HTTPException(status_code=500, detail="Database query error")
@@ -524,12 +523,12 @@ async def generate_geport(post_ids: List[int], questions: List[str], read_db: Se
         llm_invoke_async(prompt2)
     )
     answer_1 = answer_1.content
-    # 좌우명 분석에 대한 분석
+    #좌우명 분석에 대한 분석
     updated_answer2_prompt = create_prompt(3).format_prompt(answer_2=answer_2, answer2=questions[2], answer3=questions[3]).to_messages()
     answer_2 = llm35.invoke(updated_answer2_prompt)
     answer_2 = answer_2.content
 
-    # 제 인생 변곡점은 이겁니다.
+    #제 인생 변곡점은 이겁니다.
     updated_answer3_prompt = create_prompt(4).format_prompt(answer2=questions[2], answer3=questions[3], answer4=questions[4], answer_2=answer_2).to_messages()
     answer_3 = llm35.invoke(updated_answer3_prompt)
     answer_3 = answer_3.content
