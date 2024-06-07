@@ -96,7 +96,7 @@ def get_post_tags_for_recent_posts(db: Session, current_user: User):
         # 최근 10개의 post_id에 대한 태그를 가져옵니다
         tags_query = text("""
             SELECT post_id, post_tag_id, contents
-            FROM PostTag
+            FROM post_tag
             WHERE post_id IN :post_ids AND is_user = 0
         """)
         tags_result = db.execute(tags_query, {"post_ids": tuple(post_ids)}).fetchall()
