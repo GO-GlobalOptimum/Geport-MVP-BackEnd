@@ -143,14 +143,14 @@ def generate_thumbnailImage(post_id: int, db: Session):
 
         # 생성된 이미지 URL을 post 테이블에 업데이트
         try:
-            update_query = text("UPDATE Post SET thumbnailImage = :thumbnail_image WHERE post_id = :post_id")
-            db.execute(update_query, {"thumbnail_image": public_url, "post_id": post_id})
+            update_query = text("UPDATE Post SET thumbnailImage = :thumbnailImage WHERE post_id = :post_id")
+            db.execute(update_query, {"thumbnailImage": public_url, "post_id": post_id})
             db.commit()
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
-        return {"thumbnail_image_url": public_url}
+        return {"thumbnailImage_url": public_url}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

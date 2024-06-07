@@ -41,8 +41,7 @@ def get_recently_viewed_person_types(db: Session, current_user: dict):
     member_id = result.member_id
 
     # 사용자가 최근 본 포스트의 ID를 조회합니다.
-    #query_str = text("SELECT post_id FROM View WHERE member_id = :member_id ORDER BY updated_time DESC LIMIT 10")
-    query_str = text("SELECT post_id FROM View WHERE member_id = :member_id")
+    query_str = text("SELECT post_id FROM View WHERE member_id = :member_id ORDER BY updated_time DESC LIMIT 10")
     params = {"member_id": member_id}
 
     try:

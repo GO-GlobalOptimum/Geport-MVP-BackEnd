@@ -82,7 +82,7 @@ def get_post_tags_for_recent_posts(db: Session, current_user: User):
             SELECT post_id
             FROM Post
             WHERE member_id = :user_id
-            ORDER BY createdAt DESC
+            ORDER BY created_at DESC
             LIMIT 10
         """)
         recent_posts = db.execute(recent_posts_query, {"user_id": user_id}).fetchall()
@@ -96,7 +96,7 @@ def get_post_tags_for_recent_posts(db: Session, current_user: User):
         # 최근 10개의 post_id에 대한 태그를 가져옵니다
         tags_query = text("""
             SELECT post_id, post_tag_id, contents
-            FROM post_tag
+            FROM PostTag
             WHERE post_id IN :post_ids AND is_user = 0
         """)
         tags_result = db.execute(tags_query, {"post_ids": tuple(post_ids)}).fetchall()
@@ -241,5 +241,3 @@ def generate_personType(db, current_user):
 
     return person_type
     
-
-

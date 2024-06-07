@@ -53,7 +53,7 @@ def create_prompt():
 def get_post_by_id(post_id: int, db: Session):
     try:
         # 특정 필드만 선택하는 SQL 쿼리
-        query = text("SELECT title, post_id, post_content FROM Post WHERE post_id = :post_id")
+        query = text("SELECT title, post_id, postContent FROM Post WHERE post_id = :post_id")
         result = db.execute(query, {"post_id": post_id}).fetchone()
         if result is None:
             raise HTTPException(status_code=404, detail="Post not found")
@@ -69,7 +69,7 @@ def get_post_by_id(post_id: int, db: Session):
 def generate_thumbnailText(post_id: int, db: Session):
     result = get_post_by_id(post_id, db)
     title = result['title']
-    content = result['post_content']
+    content = result['postContent']
     prompt1 = create_prompt().format_prompt(title=title, context=content).to_messages()
 
     generate_thumbnail_txt = llm35.invoke(prompt1)
@@ -83,7 +83,7 @@ def generate_thumbnailText(post_id: int, db: Session):
     # 썸네일 텍스트를 데이터베이스에 업데이트
     try:
         update_query = text("UPDATE Post SET thumbnailText = :thumbnailText WHERE post_id = :post_id")
-        db.execute(update_query, {"thumbnail_text": thumbnail_json['content'], "post_id": post_id})
+        db.execute(update_query, {"thumbnailText": thumbnail_json['content'], "post_id": post_id})
         db.commit()
     except Exception as e:
         db.rollback()

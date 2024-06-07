@@ -65,7 +65,7 @@ def get_post_by_id(post_id: int, db: Session):
 def generate_tags(post_id: int, db: Session):
     result = get_post_by_id(post_id, db)
     title = result['title']
-    content = result['post_content']
+    content = result['postContent']
     post_id = result['post_id']
     member_id = result['member_id']
     prompt1 = create_prompt().format_prompt(title=title, context=content).to_messages()
@@ -88,4 +88,3 @@ def generate_tags(post_id: int, db: Session):
     db.commit()
 
     return tags_json
-
