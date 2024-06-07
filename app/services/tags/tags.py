@@ -18,6 +18,10 @@ load_dotenv(dotenv_path=env_path)
 
 # LLM 설정
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    logging.error("OpenAI API key is not set. Please check your .env file.")
+    raise HTTPException(status_code=500, detail="OpenAI API key is not set.")
+    
 llm35 = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY, model_kwargs={"response_format": {'type':"json_object"}}, request_timeout=300)
 
 def create_prompt():
@@ -60,6 +64,7 @@ def get_post_by_id(post_id: int, db: Session):
         post = dict(result._mapping)
         return post
     except Exception as e:
+        logging.error(f"Error getting post by ID: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 def generate_tags(post_id: int, db: Session):
@@ -70,21 +75,24 @@ def generate_tags(post_id: int, db: Session):
     member_id = result['member_id']
     prompt1 = create_prompt().format_prompt(title=title, context=content).to_messages()
 
-    generated_tags = llm35.invoke(prompt1)
+    try:
+        generated_tags = llm35.invoke(prompt1)
+        # JSON 응답에서 content 값만 추출
+        content = generated_tags.content
 
-    # JSON 응답에서 content 값만 추출
-    content = generated_tags.content
-    
-    # content 값을 JSON으로 파싱
-    tags_json = json.loads(content.strip())
+        # content 값을 JSON으로 파싱
+        tags_json = json.loads(content.strip())
 
-    # 태그들을 하나의 문자열로 결합
-    tags_string = ",".join(tags_json['tags'])
+        # 태그들을 하나의 문자열로 결합
+        tags_string = ",".join(tags_json['tags'])
 
-    # tags 데이터베이스에 저장
-    insert_query = text("INSERT INTO PostTag (post_id, contents, is_user) VALUES (:post_id, :name, :is_user)")
-    db.execute(insert_query, {"post_id": post_id, "name": tags_string, "is_user": False})
-    
-    db.commit()
+        # tags 데이터베이스에 저장
+        insert_query = text("INSERT INTO PostTag (post_id, contents, is_user) VALUES (:post_id, :name, :is_user)")
+        db.execute(insert_query, {"post_id": post_id, "name": tags_string, "is_user": False})
+
+        db.commit()
+    except Exception as e:
+        logging.error(f"Error generating tags: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
     return tags_json
