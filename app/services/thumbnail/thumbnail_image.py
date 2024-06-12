@@ -1,90 +1,157 @@
-import os
-import logging
-import json
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from fastapi import HTTPException
-from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
-from langchain.prompts import (
-    ChatPromptTemplate,
-    SystemMessagePromptTemplate,
-    HumanMessagePromptTemplate
-)
 
-logging.basicConfig(level=logging.WARNING)
-env_path = os.path.join(os.path.dirname(__file__), '../../../.env')
-load_dotenv(dotenv_path=env_path)
+# import os
+# from dotenv import load_dotenv
+# import boto3
+# from sqlalchemy.orm import Session
+# from sqlalchemy import text
+# from fastapi import HTTPException
+# from langchain_openai import ChatOpenAI
+# from langchain.prompts import (
+#     ChatPromptTemplate,
+#     SystemMessagePromptTemplate,
+#     HumanMessagePromptTemplate
+# )
+# import logging
+# import json
+# import requests
+# import uuid
+# from io import BytesIO
+# from PIL import Image
 
-# LLM 설정
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-llm35 = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY, model_kwargs={"response_format": {'type':"json_object"}}, request_timeout=300)
 
-def create_prompt():
-    return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
-        """
-        You are an assistant who looks at a user's blog and picks out important tags. Tags can be words or short sentences.
-        You pick one tag from the title and four from the body, for a total of five tags.
-        The tags must be in Korean, always provide 5 tags, and use the result in JSON format {{ "tags" : ["tag1", "tag2", "tag3", "tag4", "tag5" ] }} like this
-        """
-    ),
-    HumanMessagePromptTemplate.from_template(
-        """
-       ### Example Input
-        Title : Sydeny trip
-        Context: Today's trip to Sydney was fun. In the morning, I had morning bread and steak, and then I bought a music box at a nearby souvenir shop.
-        For lunch, I enjoyed a course meal with wine at a restaurant overlooking the sea. In the evening, I had fun making new friends at a fireworks festival.
-        I really enjoyed this trip and would love to come back again.
+# logging.basicConfig(level=logging.WARNING)
+# env_path = os.path.join(os.path.dirname(__file__), '../../.env')
+# load_dotenv(dotenv_path=env_path)
+# # LLM 설정
+# OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# llm35 = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.9, openai_api_key=OPENAI_API_KEY, model_kwargs={"response_format": {'type':"json_object"}}, request_timeout=300)
 
-        ### Example Output :
-        {{
-            "tags": ["sydney", "bread and steak", "restaurant", "sea", "I really enjoyed this trip"]
-        }}
-        ### Input
-        Title : {title}
-        Context: {context}
+# # 네이버 클라우드 S3 설정
+# service_name = 's3'
+# endpoint_url = 'https://kr.object.ncloudstorage.com'
+# region_name = 'kr-standard'
+# access_key = os.getenv("NAVER_CLOUD_ACCESS_KEY_ID")
+# secret_key = os.getenv("NAVER_CLOUD_SECRET_KEY")
 
-        ### Output
-        """
-        )])
+# if not access_key or not secret_key:
+#     raise ValueError("Missing access key or secret key for Naver Cloud S3.")
 
-def get_post_by_id(post_id: int, db: Session):
-    try:
-        # 특정 필드만 선택하는 SQL 쿼리
-        query = text("SELECT title, post_id, member_id, post_content FROM Post WHERE post_id = :post_id")
-        result = db.execute(query, {"post_id": post_id}).fetchone()
-        if result is None:
-            raise HTTPException(status_code=404, detail="Post not found")
+# print("Access Key:", access_key)  # 디버깅용 출력
+# print("Secret Key:", secret_key)  # 디버깅용 출력
+
+# # Initialize the boto3 client
+# s3_client = boto3.client(
+#     service_name,
+#     endpoint_url=endpoint_url,
+#     region_name=region_name,
+#     aws_access_key_id=access_key,
+#     aws_secret_access_key=secret_key
+# )
+
+# def create_image_prompt():
+#     return ChatPromptTemplate.from_messages([SystemMessagePromptTemplate.from_template(
+#         """
+#         You are the assistant that creates image prompts for DALL-E. 
+#         The prompts should be detailed and suitable for generating a thumbnail image based on the post content. 
+#         And make sure the image is not lopsided
+#         Don't include text in your thumbnail image, and keep it as concise and descriptive as possible.
+#         The result should always be in English and in JSON format.
+#         ex) {{ "prompt" : "A vivid digital illustration of a beautiful sunset over the ocean, with vibrant colors and a calm, serene mood." }}
+#         """
+#     ),
+#     HumanMessagePromptTemplate.from_template(
+#         """
+#         ### Example Input
+#         Title : Sydney trip
+#         Context: Today's trip to Sydney was fun. In the morning, I had morning bread and steak, and then I bought a music box at a nearby souvenir shop.
+#         For lunch, I enjoyed a course meal with wine at a restaurant overlooking the sea. In the evening, I had fun making new friends at a fireworks festival.
+#         I really enjoyed this trip and would love to come back again.
+
+#         ### Example Output :
+#         {{
+#             "prompt": "A vibrant digital illustration of a day in Sydney, starting with a morning breakfast of bread and steak, buying a music box at a souvenir shop, having a seaside lunch with wine, and ending with a fireworks festival in the evening."
+#         }}
+#         ### Input
+#         Title : {title}
+#         Context: {context}
+
+#         ### Output
+#         """
+#         )])
+
+# def get_post_by_id(post_id: int, db: Session):
+#     try:
+#         query = text("SELECT title, post_id, post_content FROM post WHERE post_id = :post_id")
+#         result = db.execute(query, {"post_id": post_id}).fetchone()
+#         if result is None:
+#             raise HTTPException(status_code=404, detail="Post not found")
         
-        # 결과를 딕셔너리로 변환
-        post = dict(result._mapping)
-        return post
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+#         post = dict(result._mapping)
+#         return post
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
 
-def generate_tags(post_id: int, read_db: Session, write_db: Session):
-    result = get_post_by_id(post_id, read_db)
-    title = result['title']
-    content = result['post_content']
-    post_id = result['post_id']
-    member_id = result['member_id']
-    prompt1 = create_prompt().format_prompt(title=title, context=content).to_messages()
 
-    generated_tags = llm35.invoke(prompt1)
+# # 썸네일 이미지 만들기
+# def generate_thumbnailImage(post_id: int, db: Session):
+#     result = get_post_by_id(post_id, db)
+#     title = result['title']
+#     content = result['post_content']
+#     prompt1 = create_image_prompt().format_prompt(title=title, context=content).to_messages()
 
-    # JSON 응답에서 content 값만 추출
-    content = generated_tags.content
+#     generate_thumbnail_img_prompt = llm35.invoke(prompt1)
+
+#     # JSON 응답에서 prompt 값만 추출
+#     generate_thumbnail_img_prompt = generate_thumbnail_img_prompt.content
     
-    # content 값을 JSON으로 파싱
-    tags_json = json.loads(content.strip())
+#     # prompt 값을 JSON으로 파싱
+#     prompt_json = json.loads(generate_thumbnail_img_prompt.strip())
 
-    # 태그들을 하나의 문자열로 결합
-    tags_string = ",".join(tags_json['tags'])
+#     # DALL-E API 호출하여 이미지 생성
+#     try:
+#         dall_e_response = requests.post(
+#             "https://api.openai.com/v1/images/generations",
+#             headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
+#             json={"prompt": prompt_json['prompt'], "n": 1, "size": "1024x1024"}
+#         )
+        
+#         if dall_e_response.status_code != 200:
+#             raise HTTPException(status_code=dall_e_response.status_code, detail="Failed to generate image")
 
-    # tags 데이터베이스에 저장
-    insert_query = text("INSERT INTO Post_tag (post_id, contents, is_user) VALUES (:post_id, :contents, :is_user)")
-    write_db.execute(insert_query, {"post_id": post_id, "contents": tags_string, "is_user": False})
-    
-    write_db.commit()
+#         image_url = dall_e_response.json().get("data")[0].get("url")
 
-    return tags_json
+#         # 이미지를 S3에 업로드
+#         response = requests.get(image_url)
+#         img = Image.open(BytesIO(response.content))
+#         img = img.resize((512, 512), Image.LANCZOS)
+
+#         unique_id = uuid.uuid4()
+#         destination_blob_name = f"{post_id}.png"
+#         bucket_name = "geport"
+
+#         buffer = BytesIO()
+#         img.save(buffer, format="PNG")
+#         buffer.seek(0)
+
+#         s3_client.put_object(
+#             Bucket=bucket_name,
+#             Key=destination_blob_name,
+#             Body=buffer,
+#             ACL='public-read'
+#         )
+
+#         public_url = f"{endpoint_url}/{bucket_name}/{destination_blob_name}"
+
+#         # 생성된 이미지 URL을 post 테이블에 업데이트
+#         try:
+#             update_query = text("UPDATE post SET thumbnail_image = :thumbnail_image WHERE post_id = :post_id")
+#             db.execute(update_query, {"thumbnail_image": public_url, "post_id": post_id})
+#             db.commit()
+#         except Exception as e:
+#             db.rollback()
+#             raise HTTPException(status_code=500, detail=str(e))
+
+#         return {"thumbnail_image_url": public_url}
+
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
