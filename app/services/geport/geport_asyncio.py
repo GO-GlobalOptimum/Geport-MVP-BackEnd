@@ -39,7 +39,7 @@ logging.basicConfig(level=logging.WARNING)
 # Setup LLM
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 llm35 = ChatOpenAI(
-    model_name="gpt-3.5-turbo", 
+    model_name="gpt-4o", 
     temperature=0.9, 
     openai_api_key=OPENAI_API_KEY, 
     model_kwargs={"response_format": {'type': "json_object"}}, 
