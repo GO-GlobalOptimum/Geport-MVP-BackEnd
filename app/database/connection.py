@@ -33,16 +33,9 @@ WriteSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=write_e
 # SQLAlchemy 기본 클래스 생성
 Base = declarative_base()
 
-# 읽기 전용 데이터베이스 세션 생성 함수
-def get_read_db():
-    db = ReadSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 # 쓰기 전용 데이터베이스 세션 생성 함수
-def get_write_db():
+def get_db():
     db = WriteSessionLocal()
     try:
         yield db
