@@ -21,12 +21,16 @@ def get_config():
 def authjwt_exception_handler(request: Request, exc: AuthJWTException):
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
-def get_current_user(Authorize: AuthJWT = Depends(), credentials: HTTPAuthorizationCredentials = Security(HTTPBearer())):
+def get_current_user(Authorize: AuthJWT = Depends(), request: Request = None):
     try:
+        token = request.cookies.get("accessToken")
+        print(token)
+
         Authorize.jwt_required()
-        raw_token = Authorize.get_raw_jwt()
+        raw_token = Authorize.get_raw_jwt(token)
         user_email = raw_token['email']  # 이메일 정보 추출
         return {"email": user_email}
+    
     except KeyError:
         raise HTTPException(status_code=400, detail="Email not found in token")
     except AuthJWTException as e:
